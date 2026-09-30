@@ -1,0 +1,5 @@
+# Minimal USB/driver stack for the open-source (python-seabreeze) path, used by
+# Install.ps1 and Verify.ps1. Same versions as the dashboard's hardware backend
+# (spectro-dashboard/requirements.txt), which were known-good in the lab.
+seabreeze==2.10.1
+pyusb==1.3.1

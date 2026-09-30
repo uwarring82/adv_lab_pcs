@@ -1,0 +1,38 @@
+name: Hardware report
+description: Tell us whether it works with your spectrometer, good news included.
+labels: [hardware]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Spectrometer model
+      placeholder: USB4000
+    validations:
+      required: true
+  - type: input
+    id: hwid
+    attributes:
+      label: USB hardware ID
+      description: Printed by Verify.ps1, or shown in Device Manager → Details → Hardware Ids.
+      placeholder: USB\VID_2457&PID_1022
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Works (Verify.ps1 exit code 0 and measurements in the dashboard)
+        - Partly works
+        - Does not work
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Setup
+      description: Windows version, driver source (Seabreeze / Vendor), app version.
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Verify.ps1 output, what works and what does not.
+      render: text

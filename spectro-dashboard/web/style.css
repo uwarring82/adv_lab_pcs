@@ -1,0 +1,100 @@
+/* Light, notebook-like look: figures render like the matplotlib plots in the
+   lab notebook (white axes, black frame, grey grid, tab:blue data). */
+:root {
+  --bg: #f3f4f6;
+  --card: #ffffff;
+  --ink: #1b1f24;
+  --muted: #5b6573;
+  --line: #d9dde3;
+  --accent: #1f77b4;   /* matplotlib tab:blue */
+  --ok: #2ca02c;       /* matplotlib tab:green */
+  --warn: #b7791f;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.45 "DejaVu Sans", Verdana, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px; background: var(--card); border-bottom: 1px solid var(--line);
+}
+header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+.badge {
+  margin-left: auto; font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  background: #eef1f5; color: var(--muted);
+}
+.badge.sim { background: #fdf3dc; color: var(--warn); }
+.badge.live { background: #e3f4e3; color: var(--ok); }
+
+main { max-width: 1400px; margin: 0 auto; padding: 14px 16px 24px; display: grid; gap: 14px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+/* measurement | histogram | scripting; wraps to two rows, then one column */
+.row { display: grid; grid-template-columns: 290px minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 1200px) {
+  .row { grid-template-columns: 290px minmax(0, 1fr); }
+  .row .api { grid-column: 1 / -1; }
+}
+@media (max-width: 860px) { .row { grid-template-columns: 1fr; } }
+
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 8px; }
+.hint { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+.hint a { color: var(--accent); }
+
+/* toolbar */
+.toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 22px; }
+.toolbar .group { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 10px; }
+.toolbar label { width: 150px; }
+.toolbar label.check { width: auto; padding-bottom: 7px; }
+
+/* one-line feedback under the controls: applied / warning / rejected */
+.notice { flex-basis: 100%; min-height: 1.3em; font-size: 12.5px; color: var(--muted); }
+.notice.warn { color: var(--warn); }
+.notice.error { color: #c0392b; }
+
+label { display: block; font-size: 12px; color: var(--muted); }
+label.check { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); }
+input[type=number] {
+  display: block; width: 100%; margin-top: 3px; padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--line); background: #fff; color: var(--ink); font: inherit;
+}
+input.narrow { display: inline-block; width: 80px; margin: 0 0 0 4px; }
+button {
+  padding: 7px 12px; border-radius: 6px; cursor: pointer; font: inherit;
+  border: 1px solid #c3c9d2; background: #fff; color: var(--ink);
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary.on { background: var(--ok); border-color: var(--ok); }
+.btnrow { display: flex; gap: 8px; margin: 10px 0; }
+.btnrow button { flex: 1; }
+
+/* figures */
+.figbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-bottom: 6px; }
+.figtitle { font-weight: 600; font-size: 14px; }
+.opts { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.opts label { color: var(--ink); font-size: 13px; }
+.plot { width: 100%; min-height: 60px; }
+.readout { margin-top: 4px; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+
+/* uPlot: draw a black frame round the axes like matplotlib spines, crosshair cursor */
+.plot .u-over { border: 1px solid #000; cursor: crosshair; }
+.plot .u-legend { display: none; }
+
+/* colour strip under the spectrum: label in the y-axis gutter, canvas under the plot area */
+.stripwrap { display: flex; margin-top: 4px; }
+.stripwrap[hidden] { display: none; }
+.striplabel {
+  flex: none; display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 8px; font-size: 11px; line-height: 1.2; text-align: right; color: var(--muted);
+}
+#strip { display: block; outline: 1px solid #000; outline-offset: -1px; }
+
+.progress { height: 6px; background: #eef1f5; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+#pbar { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+
+.snippet {
+  background: #f7f8fa; border: 1px solid var(--line); border-radius: 6px; margin: 0;
+  padding: 10px 12px; font: 12.5px/1.5 ui-monospace, Menlo, Consolas, monospace; overflow-x: auto;
+}

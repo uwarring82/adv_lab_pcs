@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software in teaching or research, please cite it as below."
+title: "adv_lab_pcs: spectrometer dashboard and lab-PC setup for the advanced physics lab"
+abstract: >-
+  A local web application that turns an Ocean Optics classic-series USB
+  spectrometer into a browser-based teaching instrument (live view, N-scan
+  statistics with standard errors, per-channel intensity histograms, CSV export
+  and an HTTP API for student scripts), plus scripts that prepare Windows lab
+  PCs for the device. Developed for the advanced lab courses at the Institute
+  of Physics, University of Freiburg.
+type: software
+authors:
+  - given-names: Ulrich
+    family-names: Warring
+    affiliation: "Institute of Physics, University of Freiburg"
+license: MIT
+version: 0.3.0
+keywords:
+  - spectroscopy
+  - physics education
+  - laboratory instrumentation
+  - Ocean Optics
+  - python-seabreeze
+  - FastAPI

@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.build-venv/
+.pytest_cache/
+
+# PyInstaller build output
+spectro-dashboard/build/
+spectro-dashboard/dist/
+*.spec
+
+# Proprietary vendor installers (not redistributable) — keep the README only
+windows/ocean-optics-setup/vendor/*
+!windows/ocean-optics-setup/vendor/README.md
+
+# Editors and OS cruft
+.DS_Store
+.idea/
+.vscode/

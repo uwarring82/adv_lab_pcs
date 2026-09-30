@@ -1,0 +1,41 @@
+name: Bug report
+description: Something does not work as described.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part?
+      options:
+        - Dashboard (browser page)
+        - HTTP API / scripting
+        - Packaged .exe
+        - Windows setup (Install.ps1 / Verify.ps1)
+        - Documentation
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Setup
+      description: Operating system, Python version (or "packaged .exe"), app version (shown at /docs).
+      placeholder: Windows 11, packaged .exe 0.3.0
+  - type: input
+    id: device
+    attributes:
+      label: Spectrometer
+      description: Model and USB hardware ID (from Verify.ps1), or "simulator".
+      placeholder: USB2000+ (USB\VID_2457&PID_101E)
+  - type: textarea
+    id: output
+    attributes:
+      label: Error messages and logs
+      description: Message shown in the dashboard, console output, or the setup log from C:\ProgramData\OceanOptics\logs\. Remove anything you do not want to be public.
+      render: text
