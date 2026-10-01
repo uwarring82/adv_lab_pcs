@@ -128,3 +128,44 @@ jobs:
             spectro-dashboard/dist/THIRD_PARTY_NOTICES.md
             spectro-dashboard/dist/THIRD_PARTY_LICENSES.txt
           if-no-files-found: error
+
+  # Pushing a version tag (v1.2.3) publishes the smoke-tested executable as a
+  # GitHub pre-release, downloadable without an account (artifacts need a login).
+  # Promote it to a full release after checking it with a real spectrometer.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows-exe, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check that the tag matches the app version
+        run: |
+          app=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' spectro-dashboard/spectro/__init__.py)
+          if [ "v$app" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match __version__ = $app"
+            exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: artifact
+      - name: Package and publish the pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          dir="SpectrometerDashboard-${version}-windows"
+          mv artifact "$dir"
+          zip -r -X "$dir.zip" "$dir"
+          sha256sum "$dir.zip" > SHA256SUMS.txt
+          {
+            cat .github/release-notes.md
+            echo
+            echo "SHA-256 of the ZIP: \`$(cut -d' ' -f1 SHA256SUMS.txt)\`"
+            echo
+            echo "Built and smoke-tested by CI from commit ${GITHUB_SHA::7} ([workflow run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}))."
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" "$dir.zip" SHA256SUMS.txt \
+            --title "$version" --notes-file notes.md --prerelease --verify-tag

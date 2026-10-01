@@ -46,7 +46,8 @@ The build runs the tests first (`-SkipTests` to skip) and exits with code 1 if a
 step fails or no fresh `.exe` was produced. The executable opens a console window
 showing the URL; closing it stops the server. `-Windowed` builds without the console
 (output then goes to `%TEMP%\spectrometer-dashboard.log`). CI builds and smoke-tests
-the executable on every push (artifact `windows-exe`).
+the executable on every push; tagged versions are published on the
+[Releases](https://github.com/uwarring82/adv_lab_pcs/releases) page.
 
 ## Layout
 

@@ -106,15 +106,20 @@ Build the executable on Windows with `packaging\build_exe.ps1`; see the
 | `tests` | pytest on Ubuntu (Python 3.10, 3.12, 3.13) and Windows (3.12), installing from `requirements-dev.txt` |
 | `frontend` | `node --check` on the dashboard's JavaScript |
 | `powershell` | parses every `.ps1` with the Windows PowerShell 5.1 parser and runs PSScriptAnalyzer (errors fail the job) |
-| `windows-exe` | runs `build_exe.ps1`, starts the executable in simulator mode, checks the API and the bundled web page, and uploads the executable with its license files as the `windows-exe` artifact |
+| `windows-exe` | runs `build_exe.ps1`, starts the executable in simulator mode, checks the API and the bundled web page, and uploads the executable with its license files as the `windows-exe` artifact (downloading artifacts requires a GitHub login) |
+| `release` | only for tags `v*`: checks that the tag matches `__version__`, then publishes the smoke-tested executable as a ZIP (plus `SHA256SUMS.txt`) in a GitHub **pre-release**, using `.github/release-notes.md` as the text |
 
 ## Releasing
 
-1. Update the version in `spectro-dashboard/spectro/__init__.py` and `CITATION.cff`.
+1. Update the version in `spectro-dashboard/spectro/__init__.py` and `CITATION.cff`
+   (`version`, `date-released`).
 2. Move the *Unreleased* entries in [CHANGELOG.md](../CHANGELOG.md) under the new
    version with the date.
-3. Commit, tag (`git tag v0.3.0`) and push the tag.
-4. Attach the `windows-exe` artifact of that commit's CI run to a GitHub release.
-5. Before announcing a release for lab use, run it once on a real lab PC with a
-   spectrometer: `Install.ps1`, `Verify.ps1` (exit code 0), then a measurement in the
-   dashboard.
+3. Commit and push, then tag and push the tag:
+   `git tag v0.3.1 && git push origin v0.3.1`. CI builds, smoke-tests and publishes
+   the pre-release (about 15 minutes). A tag that does not match `__version__` fails
+   the `release` job.
+4. Run it once on a real lab PC with a spectrometer: `Install.ps1`, `Verify.ps1`
+   (exit code 0), then a measurement in the dashboard.
+5. Promote it to a full release: `gh release edit v0.3.1 --prerelease=false --latest`
+   (or *Edit release* on GitHub).

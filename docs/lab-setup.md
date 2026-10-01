@@ -81,9 +81,13 @@ test spectrum through python-seabreeze.
 
 ## Step 3: build the dashboard executable
 
-You need this only once per version, on any Windows PC with Python 3.10–3.13 (it does
-not have to be a lab PC). Alternatively, download the executable built by the
-project's CI (the *windows-exe* artifact of a workflow run on GitHub).
+**Usually you can skip this step:** download the ZIP from the
+[Releases](https://github.com/uwarring82/adv_lab_pcs/releases) page (no GitHub account
+needed). It contains the executable built and smoke-tested by the project's CI, with
+its license files.
+
+To build it yourself (once per version), use any Windows PC with Python 3.10–3.13; it
+does not have to be a lab PC.
 
 ```powershell
 cd spectro-dashboard
@@ -96,8 +100,9 @@ to it. It exits with code 1 if any step fails.
 
 ## Step 4: install on the lab PC
 
-1. Copy the contents of `dist\` (the `.exe` and the license files) to the lab PC, e.g.
-   to `C:\Program Files\SpectrometerDashboard\`.
+1. Copy the unzipped release folder (or the contents of `dist\` if you built it
+   yourself): the `.exe` and the license files. A good place on the lab PC is
+   `C:\Program Files\SpectrometerDashboard\`.
 2. Create a desktop shortcut to the `.exe` for the students.
 3. Start it once yourself. Check that the badge at the top right shows the
    spectrometer model and not **SIMULATED**.

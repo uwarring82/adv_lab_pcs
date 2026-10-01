@@ -46,8 +46,9 @@ peak to see its histogram.
 
 1. Prepare the Windows PC: `windows/ocean-optics-setup/Install.ps1` installs the USB
    driver and power settings, and `Verify.ps1` checks the spectrometer.
-2. Build `SpectrometerDashboard.exe` with `spectro-dashboard/packaging/build_exe.ps1`,
-   or take the `windows-exe` artifact from a CI run.
+2. Download `SpectrometerDashboard.exe` from the
+   [Releases](https://github.com/uwarring82/adv_lab_pcs/releases) page (no GitHub
+   account needed), or build it with `spectro-dashboard/packaging/build_exe.ps1`.
 3. Put the executable on the lab PC's desktop.
 
 The [lab setup guide](docs/lab-setup.md) walks through every step.

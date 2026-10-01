@@ -4,7 +4,9 @@ All notable changes are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]: first public version (0.3.0)
+## [Unreleased]
+
+## [0.3.0] - 2026-10-01: first public version
 
 ### Spectrometer dashboard (`spectro-dashboard/`)
 
@@ -39,3 +41,6 @@ All notable changes are listed here. The format follows
 
 - MIT license, third-party notices, contribution guide, security policy, citation
   file, documentation in `docs/` and a CI workflow.
+- Tagged versions are published automatically as GitHub pre-releases (ZIP with the
+  executable and its licenses, plus a SHA-256 checksum), downloadable without a
+  GitHub account.
