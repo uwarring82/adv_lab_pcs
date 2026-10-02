@@ -13,9 +13,14 @@ Freiburg, and usable in any lab with an Ocean Optics classic-series spectrometer
 
 - **Live view** with scan averaging (mean ± standard error), dark subtraction and
   boxcar smoothing.
-- **Statistical measurements**: N raw scans → per-channel mean and standard error of
-  the mean, with **intensity histograms** of individual channels. Students see the
-  detector's noise statistics directly.
+- **Statistical measurements**: N scans → per-channel mean and standard error of the
+  mean (optionally dark-corrected, with the uncertainties combined), with **intensity
+  histograms** of individual channels. Students see the detector's noise statistics
+  directly.
+- **Wavelength calibration** with spectral lamps: pick lines in the spectrum, fit, and
+  compare factory and custom calibration side by side; saved per spectrometer.
+- **Example spectra** recorded in the lab (mercury, cadmium, neon and sodium lamps, the
+  sun, a candle, an iodine absorption spectrum, …), also for practising the calibration.
 - **Figures in the style of the lab's analysis notebooks**: saturation line at 2¹⁶,
   channel or wavelength axis, log scale, zoom, and a **colour illustration of the
   visible spectrum** (CIE 1931).
@@ -23,8 +28,9 @@ Freiburg, and usable in any lab with an Ocean Optics classic-series spectrometer
   own measurements in Python or any other language.
 - **Safe by default**: runs locally on the lab PC, validates every request against
   memory and time limits, and allows one measurement at a time.
-- **One-click deployment**: a single Windows `.exe`; PowerShell scripts install the
-  USB driver and verify the spectrometer.
+- **One-click deployment**: a single Windows `.exe`. On a laptop without the USB
+  driver, the dashboard offers to install Ocean Optics' signed driver itself; for lab
+  PCs, PowerShell scripts install the driver and verify the spectrometer.
 - **No hardware needed to try it**: a built-in simulator behaves like a USB2000+.
 
 ## Try it (any OS, no spectrometer)
@@ -73,11 +79,14 @@ docs/                         documentation
 
 ## Project status
 
-Version 0.3.0, the first public version. The dashboard, API and statistics are covered
-by an automated test suite and have been tested with the simulator, including in a
-browser; CI builds and smoke-tests the Windows executable on every push. **The software has not yet
-been run with a real spectrometer, and the setup scripts not yet on a real lab PC.**
-Reports from real setups are the most useful contribution right now.
+Version 0.4.0. Dashboard, API, statistics and calibration are covered by an automated
+test suite and tested with the simulator in a browser; CI builds and smoke-tests the
+Windows executable on every push, including the hardware backend. Version 0.3.1 has
+been used with a real **USB2000+ on Windows 11** in the lab course: live view,
+averaging, measurements with mean and SEM and CSV export work. Not yet tried on real
+hardware: the 0.4.0 additions (calibration, *Install driver*, dark subtraction in
+measurements) and the PowerShell setup scripts. Reports from real setups are the most
+useful contribution right now.
 
 ## Contributing
 

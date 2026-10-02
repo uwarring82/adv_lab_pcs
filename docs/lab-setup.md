@@ -125,13 +125,34 @@ Command-line options (for the shortcut's *Target* field):
 | `--sim` | Use the simulator even if hardware is present (demos, training) |
 | `--no-browser` | Do not open a browser window on start |
 
+## Students' own laptops (Windows)
+
+Students can run the same executable on their own Windows laptops. Plugged in for the
+first time, the spectrometer appears in Device Manager under *Other devices* with
+Code 28: Windows has no driver for it. The dashboard detects this and offers
+**Install driver** in its connection window (click the SIMULATED badge):
+
+1. Click **Install driver** and confirm Windows' administrator prompt (students are
+   usually administrators of their own laptops).
+2. The dashboard downloads Ocean Optics' Microsoft-signed WinUSB driver package (the
+   one python-seabreeze uses; a fixed version, checked against its SHA-256 before
+   installation) and installs only the driver for the connected model.
+3. It then looks for the spectrometer again; the badge shows the model.
+
+Internet access is needed for the download. Without administrator rights, the driver
+has to be installed by someone who has them (the manual steps: Device Manager → the
+device → *Update driver* → *Browse my computer* → the unzipped
+[driver package](https://raw.githubusercontent.com/ap--/python-seabreeze/3313d157f40edaae1903789e8a061f6bc3e44745/os_support/windows-driver-files.zip),
+e.g. `OOI_USB2000Plus.inf`; click *Change settings* first if the button is greyed out).
+
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |
 |---|---|
 | Badge shows **SIMULATED · no spectrometer found** | Click the badge: the dashboard checks the USB device and its driver and lists the next steps (also printed in the console window at start-up). Typical causes: unplugged, used by another program (close it, then *Retry hardware*), or a driver python-seabreeze cannot use, e.g. the Jungo driver (`windrvr6`) of older Ocean software. That one needs the WinUSB driver from `Install.ps1`, which may affect the older Ocean software on that PC. *Copy report* gives a text to attach to an issue. |
 | `Verify.ps1`: device visible, but seabreeze sees nothing | The driver bound to the device does not suit python-seabreeze's default backend. Re-run `Install.ps1 -DriverSource Seabreeze`. As a last resort python-seabreeze documents binding a WinUSB driver with [Zadig](https://zadig.akeo.ie/) and using its `pyseabreeze` backend. |
-| Device appears as *Unknown device* in Device Manager | No driver installed: run `Install.ps1`. |
+| Device appears under *Other devices* with a warning sign (Code 28) | No driver installed: use **Install driver** in the dashboard's connection window, or run `Install.ps1`. |
+| Wavelengths look shifted (known lines in the wrong place) | Check and replace the calibration with a spectral lamp: see [Wavelength calibration](student-guide.md#wavelength-calibration). The custom calibration is saved per spectrometer in `%APPDATA%\SpectrometerDashboard\calibrations.json`. |
 | `Install.ps1` fails at `pip install` or `winget` | No internet access or a proxy: set `HTTP_PROXY` / `HTTPS_PROXY`, or use a vendor installer. The log in `C:\ProgramData\OceanOptics\logs\` has the details. |
 | Spectra drop out during long exposures | USB power saving: re-run `Install.ps1` (after switching power plans the setting must be applied again) and `Verify.ps1` with the device plugged in. |
 | Browser shows *can't reach this page* | The dashboard is not running (console window closed) or uses another port. |

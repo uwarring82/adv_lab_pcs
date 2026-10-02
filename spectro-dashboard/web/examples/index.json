@@ -1,0 +1,146 @@
+[
+ {
+  "id": "hg",
+  "file": "hg.csv",
+  "title": "Mercury lamp",
+  "kind": "calibration",
+  "description": "Spectral lamp with sharp lines at 404.7, 435.8, 546.1 and 577.0/579.1 nm (the last two are not resolved). The 546 nm line reaches the 16-bit limit (saturated). With the stored calibration the blue lines appear about 0.2-0.3 nm too high, the green one within 0.1 nm: a good exercise for the wavelength calibration.",
+  "recorded": "2025-03-26",
+  "num_scans": 1000,
+  "saturated": true,
+  "calibration": [
+   395.4,
+   0.1897,
+   -1.231e-05,
+   -5.2e-10
+  ]
+ },
+ {
+  "id": "cd",
+  "file": "cd.csv",
+  "title": "Cadmium lamp",
+  "kind": "calibration",
+  "description": "Spectral lamp with lines at 467.8, 480.0, 508.6 and 643.8 nm.",
+  "recorded": "2025-03-26",
+  "num_scans": 1000,
+  "saturated": false,
+  "calibration": [
+   395.4,
+   0.1897,
+   -1.231e-05,
+   -5.2e-10
+  ]
+ },
+ {
+  "id": "ne",
+  "file": "ne.csv",
+  "title": "Helium-neon discharge lamp",
+  "kind": "calibration",
+  "description": "Discharge lamp (not a laser): many neon lines between 580 and 700 nm, e.g. 585.2, 588.2, 614.3, 640.2 and 667.8 nm.",
+  "recorded": "2025-03-26",
+  "num_scans": 1000,
+  "saturated": false,
+  "calibration": [
+   395.4,
+   0.1897,
+   -1.231e-05,
+   -5.2e-10
+  ]
+ },
+ {
+  "id": "na",
+  "file": "na.csv",
+  "title": "Sodium lamp",
+  "kind": "calibration",
+  "description": "Dominated by the sodium D lines at 589.0 and 589.6 nm, which this spectrometer cannot resolve.",
+  "recorded": "2025-03-26",
+  "num_scans": 1000,
+  "saturated": false,
+  "calibration": [
+   395.4,
+   0.1897,
+   -1.231e-05,
+   -5.2e-10
+  ]
+ },
+ {
+  "id": "sun",
+  "file": "sun.csv",
+  "title": "Sunlight",
+  "kind": "light source",
+  "description": "Daylight continuum with dark Fraunhofer absorption lines.",
+  "recorded": "2025-03-27",
+  "num_scans": 300,
+  "saturated": false,
+  "calibration": [
+   395.4,
+   0.1897,
+   -1.231e-05,
+   -5.2e-10
+  ]
+ },
+ {
+  "id": "candle",
+  "file": "candle.csv",
+  "title": "Candle flame",
+  "kind": "light source",
+  "description": "Thermal glow of the flame: a continuum rising towards the red.",
+  "recorded": "2025-03-29",
+  "num_scans": 30,
+  "saturated": false,
+  "calibration": [
+   395.4,
+   0.1897,
+   -1.231e-05,
+   -5.2e-10
+  ]
+ },
+ {
+  "id": "phone",
+  "file": "phone.csv",
+  "title": "Smartphone screen (white)",
+  "kind": "light source",
+  "description": "A white screen is made of separate red, green and blue emitters: three bands instead of a continuum.",
+  "recorded": "2025-03-26",
+  "num_scans": 40,
+  "saturated": false,
+  "calibration": [
+   395.4,
+   0.1897,
+   -1.231e-05,
+   -5.2e-10
+  ]
+ },
+ {
+  "id": "lamp",
+  "file": "lamp.csv",
+  "title": "Desk lamp",
+  "kind": "light source",
+  "description": "Broadband desk lamp.",
+  "recorded": "2025-07-03",
+  "num_scans": 1000,
+  "saturated": false,
+  "calibration": [
+   395.4,
+   0.1897,
+   -1.231e-05,
+   -5.2e-10
+  ]
+ },
+ {
+  "id": "i2",
+  "file": "i2.csv",
+  "title": "Iodine absorption",
+  "kind": "absorption",
+  "description": "White light through iodine vapour: the regular absorption bands of the I2 molecule around 540-580 nm (iodine experiment of the advanced lab).",
+  "recorded": "2025-07-04",
+  "num_scans": 1000,
+  "saturated": false,
+  "calibration": [
+   395.4,
+   0.1897,
+   -1.231e-05,
+   -5.2e-10
+  ]
+ }
+]

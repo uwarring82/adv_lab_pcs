@@ -15,6 +15,7 @@ import sys
 import warnings
 
 from . import __version__
+from .driver import devices_needing_driver
 
 VENDOR_ID = "2457"  # Ocean Optics classic-series USB vendor ID
 
@@ -130,17 +131,17 @@ def hints(report: dict) -> list[str]:
             name = dev.get("name") or dev.get("instance_id")
             service = (dev.get("service") or "").strip()
             if dev.get("status") != "OK":
-                out.append(f"Windows reports status '{dev.get('status')}' for '{name}': its "
-                           "driver is missing or not working. Install it with "
-                           "windows/ocean-optics-setup/Install.ps1 (as administrator), see the "
-                           "lab setup guide.")
+                out.append(f"Windows reports status '{dev.get('status')}' for '{name}': it has no "
+                           "working driver. Click 'Install driver' (Windows asks for "
+                           "administrator approval), then 'Retry hardware'. Manual steps: see "
+                           "the lab setup guide.")
             elif service.lower() != "winusb":
                 out.append(f"'{name}' uses the driver '{service or 'unknown'}' "
                            f"({dev.get('driver_provider') or 'unknown provider'}). The dashboard "
                            "needs Ocean Optics' WinUSB driver; older Ocean software installs a "
-                           "different one (e.g. Jungo WinDriver, 'windrvr6'). Install the WinUSB "
-                           "driver with windows/ocean-optics-setup/Install.ps1 (as "
-                           "administrator). This may affect older Ocean software on this PC.")
+                           "different one (e.g. Jungo WinDriver, 'windrvr6'). Click 'Install "
+                           "driver' (administrator approval), then 'Retry hardware'. This may "
+                           "affect older Ocean software on this PC.")
 
     if sb.get("devices"):
         out.append(f"seabreeze sees {', '.join(sb['devices'])} but the dashboard could not open "
@@ -176,5 +177,6 @@ def collect(mgr) -> dict:
         "seabreeze": probe_seabreeze() if info["simulated"] and not mgr.forced_sim else None,
         "usb_devices": windows_usb_devices(),
     }
+    report["driver_install_available"] = bool(devices_needing_driver(report["usb_devices"]))
     report["hints"] = hints(report)
     return report

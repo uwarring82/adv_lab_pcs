@@ -26,6 +26,7 @@ if sys.stdout is None or sys.stderr is None:
 import uvicorn  # noqa: E402  (after the stdout fix above)
 
 from spectro.app import create_app  # noqa: E402
+from spectro.calibration import default_store_path  # noqa: E402
 
 
 def main() -> None:
@@ -36,7 +37,7 @@ def main() -> None:
     p.add_argument("--no-browser", action="store_true", help="Do not open a browser")
     args = p.parse_args()
 
-    app = create_app(prefer_sim=args.sim)
+    app = create_app(prefer_sim=args.sim, calibration_file=default_store_path())
     url = f"http://{args.host}:{args.port}/"
 
     if not args.no_browser:

@@ -46,11 +46,13 @@ def test_windows_sees_no_device():
 
 def test_wrong_driver_is_named():
     text = joined(report([device(service="windrvr6", driver_provider="Jungo")]))
-    assert "windrvr6" in text and "Jungo" in text and "Install.ps1" in text
+    assert "windrvr6" in text and "Jungo" in text and "Install driver" in text
 
 
 def test_driver_problem_status():
-    assert "status 'Error'" in joined(report([device(status="Error")]))
+    # Maxim's lab PC: Windows knows the name, but there is no driver (Code 28)
+    text = joined(report([device(status="Error", service=None, driver_provider=None, inf=None)]))
+    assert "status 'Error'" in text and "Install driver" in text
 
 
 def test_winusb_but_seabreeze_sees_nothing():

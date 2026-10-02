@@ -6,6 +6,37 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-02
+
+From the first test with a real USB2000+ in the lab course.
+
+### Added
+
+- **Wavelength calibration**: fit λ(p) = c0 + c1·p + c2·p² + c3·p³ to reference lines
+  picked in the spectrum (peak centre with sub-channel precision), or enter the
+  coefficients. Factory and custom calibration are shown side by side for every line
+  (position, deviation, RMS, largest difference); a custom calibration is highlighted
+  above the plot and on the axis, saved per spectrometer and can be reset to factory.
+  API: `/api/calibration` (GET, POST, DELETE) and `/api/calibration/preview`.
+- **Example spectra** from the lab (Hg, Cd, He-Ne and Na lamps, sunlight, candle,
+  smartphone screen, desk lamp, iodine absorption), usable without a spectrometer;
+  with an example shown, the calibration panel is a practice mode.
+- **Install driver** (Windows): installs Ocean Optics' signed WinUSB driver for a
+  connected spectrometer without one (Code 28), after Windows' administrator prompt.
+  Meant for students' own laptops. API: `POST /api/driver/install`.
+- Zoom controls: x range fields and *Reset zoom*.
+
+### Changed
+
+- *Subtract dark* acts at once (no *Apply*), is available only with a stored dark
+  spectrum, and a label shows the stored dark spectrum.
+- Dark subtraction also applies to **measurements**; the dark spectrum's SEM is added in
+  quadrature, and the CSV contains raw values and the dark spectrum too. Histograms stay
+  raw counts.
+- x axis: whole numbers without thousands separators ("1000", not "1.000"), and no
+  2.5/25 steps.
+- CSV files record the wavelength calibration.
+
 ## [0.3.1] - 2026-10-02
 
 First feedback from a real lab PC: the dashboard fell back to the simulator without

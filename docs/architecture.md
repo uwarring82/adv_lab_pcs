@@ -73,8 +73,31 @@ The progress indicator switches to "not running" only afterwards, so a client th
 `running: false` always finds the new result. Each result carries an increasing `id`.
 The block is kept for `histogram(channel, bins)`.
 
-Measurements deliberately ignore dark subtraction and smoothing: their purpose is the
-statistics of the detector itself.
+Measurements are never smoothed. With `subtract_dark` on, the mean is corrected by the
+dark spectrum, `SEM = √(SEM_raw² + SEM_dark²)` (signal and dark are independent
+measurements), and the raw mean/SEM and the dark spectrum are returned alongside. The
+scan block stays raw, so histograms always show the detector's own statistics.
+
+### Dark spectrum
+
+`store_dark()` keeps the mean **and SEM** of `scans_to_average` scans (Welford) together
+with the integration time; the live view and measurements subtract it with the SEMs
+added in quadrature.
+
+### Wavelength calibration
+
+`spectro/calibration.py`. Ocean Optics store λ(p) = c0 + c1·p + c2·p² + c3·p³ in the
+spectrometer; the factory coefficients are recovered from the device's wavelengths with
+a cubic fit (exact for that form; terms below 10⁻⁶ nm across the detector are reported
+as 0). A custom calibration (entered coefficients, or a least-squares fit to reference
+lines of order 1–3) must give increasing wavelengths across the detector. It replaces
+`_wl`, so every spectrum, measurement, histogram and CSV uses it, and is saved per device
+key `model:serial` in a JSON file (`%APPDATA%\SpectrometerDashboard\calibrations.json`,
+on other systems `~/.config/spectrometer-dashboard/`). A saved calibration that does
+not fit the device is ignored. `compare()` produces the side-by-side view for students:
+each reference line under both polynomials, both RMS values, and the largest difference
+across the detector. `/api/calibration/preview` fits without applying, for practising
+on example spectra recorded with another calibration.
 
 ### Configuration
 
@@ -145,6 +168,30 @@ every step's exit code, verifies that a fresh `.exe` exists and writes
 The default build keeps a console window: it shows the URL, and closing it stops the
 server. `run.py` redirects output to a log file when there is no console (the
 `-Windowed` build), because uvicorn's logging fails without stdout.
+
+## Diagnostics and driver installation
+
+`spectro/diagnostics.py` explains a fallback to the simulator: which seabreeze backend
+loads (python-seabreeze silently falls back from `cseabreeze`, which on Windows only sees
+devices bound to Ocean Optics' **WinUSB** driver, to `pyseabreeze`), the devices it
+lists, and on Windows the PnP status and driver service of every `VID_2457` device
+(PowerShell `Get-PnpDevice`, no administrator rights needed). `hints()` turns that into
+next steps.
+
+`spectro/driver.py` installs the missing driver: it downloads python-seabreeze's
+package of Ocean Optics' WHQL-signed `OOI_*.inf/.cat` files from a **fixed commit**,
+refuses it unless the SHA-256 matches, rejects unsafe paths in the ZIP, selects only the
+`.inf` files listing the connected devices' hardware IDs (no Windows XP variants), and
+runs `pnputil /add-driver … /install` in a separate elevated PowerShell (`-Verb RunAs`,
+so Windows shows its administrator prompt; declining it installs nothing).
+
+## Example spectra
+
+`web/examples/` holds real spectra recorded with the lab's USB2000+ (CSV plus
+`index.json`), served as static files and bundled into the executable. The page loads
+them on demand; they carry mean and SEM only (no scans, hence no histograms) and the
+calibration they were recorded with, which the calibration panel uses as reference in
+practice mode.
 
 ## Windows setup scripts
 

@@ -56,6 +56,7 @@ A complete example, including a plot in the lab-notebook style, is
 | `GET /api/status` | `{"info": {...}, "config": {...}}`: device model, serial, number of pixels, wavelength and integration-time range, `simulated` (and `fallback_reason` if no hardware was found), dark-spectrum and measurement state, and the `limits` below |
 | `GET /api/diagnostics` | Why no spectrometer is used, with next steps in `hints`: the seabreeze backend that loads and the devices it sees, and on Windows every Ocean Optics USB device (vendor ID 2457) with its driver. Takes a few seconds on Windows. |
 | `POST /api/reconnect` | Looks for the spectrometer again (e.g. after closing OceanView). Returns `{"connected": true, "model", "serial"}` or `{"connected": false, "reason"}`. Switching from the simulator to hardware resets settings, dark spectrum and measurement. |
+| `POST /api/driver/install` | Windows only: downloads Ocean Optics' Microsoft-signed WinUSB driver (a fixed version, checked by SHA-256) and installs it for the connected Ocean Optics devices that have no working driver. Windows asks for administrator approval. Returns `{"installed", "reboot_required", "drivers", "hardware_ids", "log", "reason"}`; then call `/api/reconnect`. |
 
 ### Settings
 
@@ -63,7 +64,7 @@ A complete example, including a plot in the lab-notebook style, is
 |---|---|
 | `GET /api/config` | `{"integration_time_ms", "scans_to_average", "boxcar_width", "subtract_dark"}` |
 | `POST /api/config` | Any subset of those fields. Returns the new config plus `notice` (a message, or `null`). Invalid values reject the **whole** request and change nothing. |
-| `POST /api/dark` | Stores the mean of `scans_to_average` raw scans as the dark spectrum for the current integration time. Returns `{"has_dark": true, "integration_time_ms", "scans"}`. |
+| `POST /api/dark` | Stores the mean and SEM of `scans_to_average` raw scans as the dark spectrum for the current integration time. Returns `{"has_dark": true, "integration_time_ms", "scans"}`. |
 | `DELETE /api/dark` | Discards the dark spectrum and switches subtraction off. |
 
 Settings fields:
@@ -73,10 +74,10 @@ Settings fields:
 | `integration_time_ms` | Exposure time. Changing it **discards the dark spectrum** and switches `subtract_dark` off; the response's `notice` says so. |
 | `scans_to_average` | Live view: number of scans averaged into each spectrum (mean ± SEM). |
 | `boxcar_width` | Live view: smoothing half-width in pixels (0 = off). The average near the edges uses the pixels that exist, and the SEM is propagated. |
-| `subtract_dark` | Live view: subtract the dark spectrum. Can only be switched on while a dark spectrum taken at the current integration time exists. |
+| `subtract_dark` | Live view **and measurements**: subtract the dark spectrum; its SEM is added in quadrature. Can only be switched on while a dark spectrum taken at the current integration time exists. |
 
-The settings for *scans to average*, *boxcar* and *dark subtraction* apply to the
-**live view only**. Measurements always use raw counts.
+*Scans to average* and *boxcar* apply to the live view only; measurements are never
+smoothed. Histograms always use raw counts.
 
 ### Live data
 
@@ -90,7 +91,7 @@ The settings for *scans to average*, *boxcar* and *dark subtraction* apply to th
 
 | Method & path | Body / returns |
 |---|---|
-| `POST /api/measurement` | Body `{"num_scans": N}` (default 200). Takes N **raw** scans (no dark subtraction, no smoothing) and returns `{"id", "timestamp", "model", "num_scans", "config", "wavelengths", "mean", "sem"}`. The call blocks until the measurement is done (N × integration time). |
+| `POST /api/measurement` | Body `{"num_scans": N}` (default 200). Takes N scans and returns `{"id", "timestamp", "model", "num_scans", "config", "calibration", "wavelengths", "mean", "sem", "dark_subtracted"}`. With `subtract_dark` on, `mean`/`sem` are dark-corrected and the response adds `raw_mean`, `raw_sem`, `dark`, `dark_sem`, `dark_scans`. The call blocks until the measurement is done (N × integration time). |
 | `GET /api/measurement` | The latest measurement (same format), or `404` if there is none yet |
 | `GET /api/measurement/progress` | `{"running", "done", "total"}`; poll it from a second client while a measurement runs |
 | `GET /api/measurement/histogram?channel=C&bins=B` | Histogram of channel `C` over the scans of the latest measurement: `{"measurement_id", "channel", "wavelength_nm", "num_scans", "counts", "bin_edges", "bins_capped", "mean", "std", "sem"}`. `bins` is a number (1–1000) or a numpy rule: `auto` (default), `fd`, `doane`, `scott`, `stone`, `rice`, `sturges`, `sqrt`. `len(bin_edges) == len(counts) + 1`. |
@@ -103,6 +104,26 @@ Only **one measurement runs at a time**. While it runs, other requests that need
 spectrometer (live spectra, settings, dark) return `409` instead of waiting; the live
 WebSocket stream pauses and resumes afterwards.
 
+### Wavelength calibration
+
+Wavelengths follow λ(p) = c0 + c1·p + c2·p² + c3·p³ (p = channel), either the factory
+polynomial stored in the spectrometer or a custom one, saved per device (model and
+serial) on the PC.
+
+| Method & path | Body / returns |
+|---|---|
+| `GET /api/calibration` | `{"active": "factory" \| "custom", "source", "order", "pixels", "factory_coefficients", "custom_coefficients", "comparison", "saved_in", "save_error"}`. `comparison` lists every reference line with its position under both calibrations (`factory_nm`, `factory_residual_nm`, `custom_nm`, `custom_residual_nm`), the RMS of both and their largest difference across the detector. |
+| `POST /api/calibration` | Either `{"lines": [{"pixel", "wavelength_nm"}, ...], "order": 1–3}` to fit (order defaults to number of lines − 1, at most 3), or `{"coefficients": [c0, c1, c2, c3]}` (lines optional, kept for comparison). The result is used for all wavelengths from then on. Returns the same as `GET`. |
+| `DELETE /api/calibration` | Back to the factory calibration. |
+| `POST /api/calibration/preview` | `{"lines", "order", "reference": [c0..c3], "pixels"}`: fits without using the result, and compares it with `reference`, e.g. the calibration an example spectrum was recorded with. |
+
+### Example spectra
+
+Static files served with the dashboard: `GET /examples/index.json` lists them (title,
+description, recording date, number of scans, the calibration they were recorded with),
+`GET /examples/<file>.csv` returns one (`channel, wavelength_nm, mean_counts, sem_counts,
+std_counts`). See `spectro-dashboard/web/examples/README.md`.
+
 ## CSV format
 
 Comment lines start with `#` and record the context; then a header and one row per
@@ -113,13 +134,17 @@ channel:
 # timestamp=1790796136.30
 # num_scans=200
 # config={'integration_time_ms': 100.0, 'scans_to_average': 1, 'boxcar_width': 0, 'subtract_dark': False}
+# dark_subtracted=False
+# wavelength_calibration=factory: lambda(p) = c0 + c1 p + c2 p^2 + c3 p^3, c = [339.4, 0.3846, -1.71e-05, 2.1e-10]
 channel,wavelength_nm,mean_counts,sem_counts
-0,340.0000,635.0600,3.2021
+0,339.4000,635.0600,3.2021
 ...
 ```
 
-The live CSV (`/api/spectrum.csv`) has the columns `channel, wavelength_nm,
-intensity_counts, sem_counts` and no `num_scans` line.
+With dark subtraction the measurement CSV adds the columns `raw_mean_counts,
+raw_sem_counts, dark_counts, dark_sem_counts`. The live CSV (`/api/spectrum.csv`) has
+the columns `channel, wavelength_nm, intensity_counts, sem_counts` and no `num_scans`
+or `dark_subtracted` line.
 
 ## Limits
 

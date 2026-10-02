@@ -18,6 +18,15 @@ const AXIS = {
   ticks: { stroke: "#000", width: 1, size: 4 },
 };
 const MAIN_H = 340, HIST_H = 180, STRIP_H = 40;
+// x axis: no 2.5/25 steps, and plain numbers ("1000", not "1.000", which reads like a
+// decimal in German); whole numbers unless zoomed in to a few nm.
+const WL_INCRS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+const CH_INCRS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+function xTicks(u, splits, axisIdx, space, incr) {
+  const d = incr >= 1 ? 0 : incr >= 0.1 ? 1 : 2;
+  return splits.map((v) => v.toLocaleString(undefined,
+    { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: false }));
+}
 const GAMMA = 0.8;                         // intensity gamma of the colour strip, as in the lab's earlier code
 
 const state = {
@@ -29,6 +38,7 @@ const state = {
   band: true,
   strip: true,         // colour illustration of the visible spectrum
   config: null,        // last acquisition config confirmed by the server
+  calActive: "factory", // wavelength calibration in use
   xZoom: null,        // [min, max] of the x window, kept across live frames
   channel: null,       // channel selected for the histogram
   histLog: false,
@@ -224,7 +234,11 @@ function buildMain() {
       y: { distr: state.logY ? 3 : 1, range: yRange },
     },
     axes: [
-      { ...AXIS, label: state.xAxis === "wavelength" ? "Wavelength (nm)" : "Channel number" },
+      {
+        ...AXIS, space: 60, values: xTicks,
+        incrs: state.xAxis === "wavelength" ? WL_INCRS : CH_INCRS,
+        label: xLabel(),
+      },
       { ...AXIS, label: state.logY ? "Intensity (log scale)" : "Intensity (a.u.)", size: 66 },
     ],
     series: [
@@ -237,7 +251,11 @@ function buildMain() {
     hooks: {
       setCursor: [showCursor],
       draw: [drawOverlays, drawStrip],
-      setScale: [(u, key) => { if (key === "x") state.xZoom = [u.scales.x.min, u.scales.x.max]; }],
+      setScale: [(u, key) => {
+        if (key !== "x") return;
+        state.xZoom = [u.scales.x.min, u.scales.x.max];
+        showZoom(u);
+      }],
     },
   }, [[], [], [], []], el);
 
@@ -271,15 +289,43 @@ function mainData(d) {
   return [x, up, lo, m];
 }
 
+// The axis says which calibration the wavelengths come from.
+function xLabel() {
+  if (state.xAxis !== "wavelength") return "Channel number";
+  if (state.source === "example") return "Wavelength (nm) · as recorded";
+  return state.calActive === "custom" ? "Wavelength (nm) · custom calibration" : "Wavelength (nm)";
+}
+
 function render(d, title) {
   state.data = d;
   if (title) $("source").textContent = title;
-  if (!plot) buildMain();
+  if (!plot || plot.axes[0].label !== xLabel()) buildMain();
   const data = mainData(d);
   plot.setData(data, false);
   const x = data[0];
   const [a, b] = state.xZoom || [x[0], x[x.length - 1]];
   plot.setScale("x", { min: a, max: b });  // also re-ranges y over the visible window
+}
+
+// --- Zoom controls under the plot -------------------------------------------
+function showZoom(u) {
+  const d = state.xAxis === "wavelength" ? 1 : 0;
+  for (const [id, v] of [["xmin", u.scales.x.min], ["xmax", u.scales.x.max]]) {
+    const el = $(id);
+    if (document.activeElement !== el && v != null) el.value = v.toFixed(d);  // not while typing
+  }
+  $("xunit").textContent = state.xAxis === "wavelength" ? "nm" : "channel";
+}
+function applyZoom() {
+  const a = parseFloat($("xmin").value), b = parseFloat($("xmax").value);
+  if (!plot) return;
+  if (!(a < b)) { notify("Zoom: 'from' must be smaller than 'to'.", "error"); return; }
+  plot.setScale("x", { min: a, max: b });
+}
+function resetZoom() {
+  if (!plot || !plot.data[0].length) return;
+  const x = plot.data[0];
+  plot.setScale("x", { min: x[0], max: x[x.length - 1] });
 }
 
 function rebuildMain() {
@@ -332,8 +378,8 @@ function drawHist(h) {
 }
 
 function statsLine(h) {
-  return `λ = ${h.wavelength_nm.toFixed(2)} nm · N = ${h.num_scans} · mean ${h.mean.toFixed(1)} · ` +
-         `σ ${h.std.toFixed(2)} · SEM ${h.sem.toFixed(2)} counts · ${h.counts.length} bins`;
+  return `λ = ${h.wavelength_nm.toFixed(2)} nm · N = ${h.num_scans} · raw counts: mean ${h.mean.toFixed(1)} · ` +
+         `σ ${h.std.toFixed(2)} · SEM ${h.sem.toFixed(2)} · ${h.counts.length} bins`;
 }
 
 async function selectChannel(i) {
@@ -342,6 +388,11 @@ async function selectChannel(i) {
   state.channel = i;
   $("channel").value = i;
   if (plot) plot.redraw(false, false);
+  if (state.source === "example") {
+    $("htitle").textContent = `Intensity Histogram for Channel ${i}`;
+    $("hstats").textContent = "Example spectra contain mean and SEM only, no single scans for a histogram.";
+    return;
+  }
   if (!state.measurement) {
     $("htitle").textContent = `Intensity Histogram for Channel ${i}`;
     $("hstats").textContent = "Run a measurement to see this channel's histogram.";
@@ -361,6 +412,8 @@ function liveTitle(cfg) {
          (cfg.subtract_dark ? " · dark subtracted" : "");
 }
 function showSpectrum(s) {
+  leaveExample();
+  state.source = "live";
   render({ wavelengths: s.wavelengths, intensities: s.intensities, sem: s.sem }, liveTitle(s.config));
 }
 async function single() {
@@ -414,14 +467,18 @@ async function measure() {
   }
 }
 function showMeasurement(m) {
+  leaveExample();
+  state.source = "measurement";
   state.measurement = m;
   $("pbar").style.width = "100%";
+  const dark = m.dark_subtracted ? " · dark subtracted" : "";
   render({ wavelengths: m.wavelengths, intensities: m.mean, sem: m.sem },
-         `Measurement · N = ${m.num_scans} scans · ${m.config.integration_time_ms} ms`);
+         `Measurement · N = ${m.num_scans} scans · ${m.config.integration_time_ms} ms${dark}`);
   $("mcsv").disabled = false;
   const t = new Date(m.timestamp * 1000).toLocaleTimeString();
   $("msummary").textContent =
-    `N = ${m.num_scans} scans at ${m.config.integration_time_ms} ms (${t}), shown above as mean ± SEM.`;
+    `N = ${m.num_scans} scans at ${m.config.integration_time_ms} ms (${t}), shown above as mean ± SEM` +
+    (m.dark_subtracted ? `, minus the dark spectrum (${m.dark_scans} scan${m.dark_scans > 1 ? "s" : ""}).` : ".");
   if (state.channel == null) {             // default: the brightest channel
     let best = 2;
     for (let i = 2; i < m.mean.length; i++) if (m.mean[i] > m.mean[best]) best = i;
@@ -465,18 +522,49 @@ async function applyConfig() {
   }
   fillConfig(cfg);
   notify(cfg.notice || "Settings applied.", cfg.notice ? "warn" : "info");
+  if (cfg.notice) await refreshStatus();  // e.g. the dark spectrum was discarded
   if (!state.live) await single();
+}
+
+// --- Dark spectrum ------------------------------------------------------------
+function showDarkStatus(info) {
+  const has = info.has_dark;
+  $("subdark").disabled = !has;
+  $("darkstatus").textContent = has
+    ? `dark: ${info.dark_integration_time_ms} ms, ${info.dark_scans} scan${info.dark_scans > 1 ? "s" : ""}`
+    : "no dark spectrum";
+  $("darkstatus").className = has ? "chip ok" : "chip";
+}
+async function refreshStatus() {
+  const { info, config } = await getJSON("/api/status");
+  fillConfig(config);
+  showDarkStatus(info);
+  return info;
 }
 async function storeDark() {
   const d = await postJSON("/api/dark");
+  await refreshStatus();
   notify(`Dark spectrum stored (${d.integration_time_ms} ms, ${d.scans} scan${d.scans > 1 ? "s" : ""}). ` +
-         "Tick Subtract dark and Apply to use it.");
+         "Tick 'Subtract dark' to use it." +
+         (d.scans < 10 ? " Tip: set 'Scans to average' to 10 or more first, for a less noisy dark." : ""));
 }
 async function clearDark() {
   await api("DELETE", "/api/dark");
-  fillConfig(await getJSON("/api/config"));  // the server switched subtraction off
+  await refreshStatus();  // the server switched subtraction off
   notify("Dark spectrum cleared.");
   if (!state.live) await single();
+}
+// The checkbox acts at once (no Apply needed), for the live view and measurements.
+async function toggleDark() {
+  const want = $("subdark").checked;
+  try {
+    fillConfig(await postJSON("/api/config", { subtract_dark: want }));
+    notify(want ? "Dark subtraction on (live view and measurements)." : "Dark subtraction off.");
+    if (!state.live) await single();
+  } catch (err) {
+    $("subdark").checked = !want;
+    notify(err.message, "error");
+  }
 }
 
 function renderSnippet() {
@@ -496,6 +584,251 @@ function renderSnippet() {
   ].join("\n");
 }
 
+// --- Example spectra (real data from the lab, see web/examples) ---------------
+async function loadExamples() {
+  try {
+    state.examples = await getJSON("examples/index.json");
+  } catch {
+    state.examples = [];
+  }
+  for (const e of state.examples) {
+    const o = document.createElement("option");
+    o.value = e.id;
+    o.textContent = `${e.title} (${e.kind})`;
+    $("example").append(o);
+  }
+}
+async function showExample(id) {
+  const meta = (state.examples || []).find((e) => e.id === id);
+  if (!meta) return;
+  if (state.live) stopLive();
+  const r = await fetch(`examples/${meta.file}`);
+  if (!r.ok) throw new Error(`could not load example (${r.status})`);
+  const rows = (await r.text()).split("\n").filter((l) => l && !l.startsWith("#")).slice(1)
+    .map((l) => l.split(",").map(Number));
+  const data = { wavelengths: rows.map((x) => x[1]), intensities: rows.map((x) => x[2]),
+                 sem: rows.map((x) => x[3]) };
+  state.source = "example";
+  state.example = { meta, data };
+  state.exampleFit = null;
+  render(data, `Example · ${meta.title} · ${meta.recorded} · N = ${meta.num_scans} scans`);
+  $("exinfo").textContent = `Example data, not from the connected spectrometer. ${meta.description}`;
+  $("exinfo").hidden = false;
+  if ($("cal").open) renderCalibration(true);
+}
+function leaveExample() {
+  if (state.source !== "example") return;
+  state.source = null;
+  state.example = state.exampleFit = null;
+  $("example").value = "";
+  $("exinfo").hidden = true;
+  if ($("cal").open) renderCalibration(true);
+}
+
+// --- Wavelength calibration: factory and custom side by side -------------------
+let calInfo = null;
+const polyval = (c, p) => c[0] + p * (c[1] + p * (c[2] + p * c[3]));
+const fmtCoef = (x) => (x === 0 ? "0" : Math.abs(x) >= 0.01 && Math.abs(x) < 1e5 ? x.toPrecision(8) : x.toExponential(6));
+const signed = (x) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(3);
+
+function showCalibrationChip(info) {
+  calInfo = info;
+  state.calActive = info.active;
+  const chip = $("calchip");
+  if (info.active === "custom") {
+    const rms = info.comparison.custom_rms_nm;
+    chip.textContent = "λ calibration: custom" + (info.source === "fit"
+      ? ` (fit${rms != null ? `, RMS ${rms.toFixed(2)} nm` : ""})` : " (coefficients)");
+    chip.className = "chip custom";
+  } else {
+    chip.textContent = "λ calibration: factory";
+    chip.className = "chip";
+  }
+}
+async function loadCalibration() {
+  showCalibrationChip(await getJSON("/api/calibration"));
+}
+
+// Device mode: factory vs custom calibration of this spectrometer.
+// Example mode: the calibration the example was recorded with vs a practice fit.
+function calModel() {
+  if (state.source === "example" && state.example) {
+    return { mode: "example", ref: state.example.meta.calibration,
+             custom: state.exampleFit ? state.exampleFit.coefficients : null,
+             comparison: state.exampleFit ? state.exampleFit.comparison : null,
+             pixels: state.example.data.intensities.length };
+  }
+  return { mode: "device", ref: calInfo.factory_coefficients, custom: calInfo.custom_coefficients,
+           comparison: calInfo.comparison, pixels: calInfo.pixels };
+}
+
+function renderCalibration(resetRows) {
+  const m = calModel(), ex = m.mode === "example";
+  const head = ex ? ["Recorded λ", "Recorded Δ", "Your fit λ", "Your fit Δ"]
+                  : ["Factory λ", "Factory Δ", "Custom λ", "Custom Δ"];
+  [...$("caltable").tHead.rows[0].cells].slice(2, 6).forEach((th, i) => { th.textContent = head[i]; });
+  $("calsummary").textContent = ex
+    ? `Practice with the example "${state.example.meta.title}": its wavelengths use the calibration it was ` +
+      "recorded with (left). Fit the known lines to see how far that calibration is off. Nothing here " +
+      "changes the calibration of your spectrometer."
+    : calInfo.active === "custom"
+      ? `In use: custom calibration (${calInfo.source === "fit"
+          ? `fit of ${calInfo.comparison.lines.length} lines, order ${calInfo.order}` : "entered coefficients"}), ` +
+        "saved for this spectrometer. The factory calibration stays in the spectrometer for comparison."
+      : "In use: factory calibration (stored in the spectrometer).";
+  $("calfit").textContent = ex ? "Fit lines (practice)" : "Fit lines and use";
+  $("calapply").hidden = $("calreset").hidden = ex;
+
+  const tb = $("calcoef");
+  tb.replaceChildren();
+  $("calcoef").closest("table").tHead.rows[0].cells[1].textContent = ex ? "Recorded with" : "Factory (in the spectrometer)";
+  $("calcoef").closest("table").tHead.rows[0].cells[2].textContent = ex ? "Your fit" : "Custom";
+  const custom = m.custom || m.ref;
+  m.ref.forEach((f, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<th>c${i}</th><td>${fmtCoef(f)}</td><td></td>`;
+    if (ex) {
+      tr.cells[2].textContent = m.custom ? fmtCoef(m.custom[i]) : "–";
+    } else {
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.step = "any"; inp.id = `calc${i}`; inp.value = fmtCoef(custom[i]);
+      tr.cells[2].append(inp);
+    }
+    tb.append(tr);
+  });
+  const c = m.comparison;
+  $("caldiff").textContent = m.custom && c && c.max_difference_nm != null
+    ? `Largest difference ${ex ? "fit − recorded" : "custom − factory"} over the detector: ` +
+      `${signed(c.max_difference_nm)} nm (channel ${c.max_difference_pixel}).` : "";
+  if (resetRows) {
+    $("caltable").tBodies[0].replaceChildren();
+    if (!ex) for (const l of calInfo.comparison.lines) addLineRow(l.pixel, l.wavelength_nm);
+  }
+  updateLineTable();
+}
+function addLineRow(pixel = "", wl = "") {
+  const tr = document.createElement("tr");
+  tr.innerHTML = '<td><input type="number" step="any" class="cpx" /></td>' +
+    '<td><input type="number" step="any" class="cwl" list="lamplines" /></td>' +
+    '<td></td><td></td><td></td><td></td><td><button type="button" title="Remove">×</button></td>';
+  tr.querySelector(".cpx").value = pixel === "" ? "" : Number(pixel).toFixed(2);
+  tr.querySelector(".cwl").value = wl;
+  tr.querySelectorAll("input").forEach((el) => { el.oninput = updateLineTable; });
+  tr.querySelector("button").onclick = () => { tr.remove(); updateLineTable(); };
+  $("caltable").tBodies[0].append(tr);
+  return tr;
+}
+function tableLines() {
+  return [...$("caltable").tBodies[0].rows].map((tr) => ({
+    tr, pixel: parseFloat(tr.querySelector(".cpx").value), wavelength_nm: parseFloat(tr.querySelector(".cwl").value),
+  }));
+}
+function validLines() {
+  return tableLines().filter((l) => Number.isFinite(l.pixel) && Number.isFinite(l.wavelength_nm))
+    .map(({ pixel, wavelength_nm }) => ({ pixel, wavelength_nm }));
+}
+// Each line under both calibrations, recomputed while typing.
+function updateLineTable() {
+  if (!calInfo) return;
+  const m = calModel(), res = { ref: [], custom: [] };
+  for (const l of tableLines()) {
+    const cells = l.tr.cells, okP = Number.isFinite(l.pixel), okW = Number.isFinite(l.wavelength_nm);
+    const r = okP ? polyval(m.ref, l.pixel) : null;
+    const c = okP && m.custom ? polyval(m.custom, l.pixel) : null;
+    cells[2].textContent = r == null ? "" : r.toFixed(3);
+    cells[3].textContent = r != null && okW ? signed(r - l.wavelength_nm) : "";
+    cells[4].textContent = c == null ? "–" : c.toFixed(3);
+    cells[5].textContent = c != null && okW ? signed(c - l.wavelength_nm) : "";
+    if (r != null && okW) res.ref.push(r - l.wavelength_nm);
+    if (c != null && okW) res.custom.push(c - l.wavelength_nm);
+  }
+  const rms = (a) => (a.length ? `${Math.sqrt(a.reduce((s, x) => s + x * x, 0) / a.length).toFixed(3)} nm` : "–");
+  $("rmsf").textContent = rms(res.ref);
+  $("rmsc").textContent = rms(res.custom);
+}
+// Centre of the peak next to the selected channel (sub-channel precision).
+function selectedPeakPixel() {
+  if (state.channel == null || !state.data) return null;
+  const I = state.data.intensities, n = I.length;
+  let best = state.channel;
+  for (let i = Math.max(2, state.channel - 6); i <= Math.min(n - 1, state.channel + 6); i++) if (I[i] > I[best]) best = i;
+  const lo = Math.max(0, best - 3), hi = Math.min(n - 1, best + 3);
+  let base = Infinity, sw = 0, swx = 0;
+  for (let i = lo; i <= hi; i++) base = Math.min(base, I[i]);
+  for (let i = lo; i <= hi; i++) { sw += I[i] - base; swx += (I[i] - base) * i; }
+  return sw > 0 ? swx / sw : best;
+}
+function openCalibration() {
+  renderCalibration(true);
+  $("calmsg").textContent = "";
+  if (!$("cal").open) $("cal").show();  // not modal: the plot stays clickable for picking peaks
+}
+function addSelectedPeak() {
+  const p = selectedPeakPixel();
+  if (p == null) { $("calmsg").textContent = "First click on a peak in the spectrum."; return; }
+  addLineRow(p, "").querySelector(".cwl").focus();
+  updateLineTable();
+}
+async function fitCalibration() {
+  const m = calModel();
+  const order = $("calorder").value ? parseInt($("calorder").value, 10) : null;
+  try {
+    if (m.mode === "example") {
+      state.exampleFit = await postJSON("/api/calibration/preview",
+        { lines: validLines(), order, reference: m.ref, pixels: m.pixels });
+      renderCalibration(false);
+      $("calmsg").textContent = "Fitted (practice only: your spectrometer's calibration is unchanged).";
+    } else {
+      await afterCalibrationChange(await postJSON("/api/calibration", { lines: validLines(), order }),
+                                   "Fitted, and in use for all wavelengths.");
+    }
+  } catch (err) {
+    $("calmsg").textContent = err.message;
+  }
+}
+async function applyCoefficients() {
+  const coefficients = [0, 1, 2, 3].map((i) => parseFloat($(`calc${i}`).value));
+  try {
+    await afterCalibrationChange(await postJSON("/api/calibration", { coefficients, lines: validLines() }),
+                                 "These coefficients are now in use.");
+  } catch (err) {
+    $("calmsg").textContent = err.message;
+  }
+}
+async function resetCalibration() {
+  await afterCalibrationChange(await api("DELETE", "/api/calibration"), "Back to the factory calibration.");
+}
+async function afterCalibrationChange(info, msg) {
+  showCalibrationChip(info);
+  renderCalibration(false);
+  $("calmsg").textContent = msg + (info.save_error ? ` ${info.save_error}` : "");
+  if (state.live) return;  // the next live frame brings the new wavelengths
+  if (state.source === "measurement" && state.measurement) showMeasurement(await getJSON("/api/measurement"));
+  else await single();
+}
+
+// --- Driver installation (Windows), from the connection dialog ------------------
+async function installDriver() {
+  const btn = $("diaginstall");
+  btn.disabled = true;
+  $("diagsummary").textContent = "Downloading and installing the driver. Windows asks for administrator approval…";
+  try {
+    const r = await postJSON("/api/driver/install");
+    $("diagjson").textContent = r.log || "";
+    if (!r.installed) {
+      $("diagsummary").textContent = `Driver not installed: ${r.reason}`;
+      return;
+    }
+    $("diagsummary").textContent = `Driver installed (${r.drivers.join(", ")})` +
+      (r.reboot_required ? "; Windows asks for a restart." : ". Looking for the spectrometer…");
+    if (!r.reboot_required) await retryHardware();
+  } catch (err) {
+    $("diagsummary").textContent = "Driver installation failed: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function init() {
   renderSnippet();
   const { info, config } = await getJSON("/api/status");
@@ -506,6 +839,9 @@ async function init() {
   $("average").max = info.limits.max_scans_to_average;
   $("boxcar").max = info.limits.max_boxcar_width;
   $("nscans").max = info.limits.max_scans;
+  showDarkStatus(info);
+  await loadCalibration();
+  loadExamples();
   const badge = $("badge");
   if (info.simulated) {
     badge.textContent = "SIMULATED" + (info.fallback_reason ? " · no spectrometer found ⓘ" : "");
@@ -542,6 +878,7 @@ async function openDiagnostics() {
     }
     $("diagjson").textContent = JSON.stringify(r, null, 2);
     $("diagretry").hidden = !s.simulated;
+    $("diaginstall").hidden = !r.driver_install_available;
   } catch (err) {
     $("diagsummary").textContent = "Diagnostics failed: " + err.message;
   }
@@ -591,6 +928,21 @@ $("color").onchange = (e) => { state.strip = e.target.checked; if (plot) drawStr
 for (const r of document.querySelectorAll('input[name="xaxis"]')) {
   r.onchange = (e) => { state.xAxis = e.target.value; rebuildMain(); };
 }
+$("subdark").onchange = toggleDark;
+$("xmin").onchange = applyZoom;
+$("xmax").onchange = applyZoom;
+$("zoomreset").onclick = resetZoom;
+$("example").onchange = (e) => {
+  if (e.target.value) showExample(e.target.value).catch((err) => notify(err.message, "error"));
+};
+$("calchip").onclick = openCalibration;
+$("caladdpeak").onclick = addSelectedPeak;
+$("caladdrow").onclick = () => { addLineRow(); updateLineTable(); };
+$("calfit").onclick = fitCalibration;
+$("calapply").onclick = applyCoefficients;
+$("calreset").onclick = guarded(resetCalibration);
+$("calclose").onclick = () => $("cal").close();
+$("diaginstall").onclick = installDriver;
 $("badge").onclick = openDiagnostics;
 $("diagretry").onclick = retryHardware;
 $("diagcopy").onclick = copyReport;

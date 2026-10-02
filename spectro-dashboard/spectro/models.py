@@ -44,9 +44,41 @@ class Measurement(BaseModel):
     model: str
     num_scans: int
     config: dict
+    calibration: str = Field(description="Wavelength calibration in use: 'factory' or 'custom'.")
     wavelengths: list[float]
-    mean: list[float] = Field(description="Mean intensity per channel (counts).")
-    sem: list[float] = Field(description="std(ddof=1) / sqrt(num_scans) per channel.")
+    mean: list[float] = Field(description="Mean intensity per channel (counts), minus the dark "
+                              "spectrum if dark_subtracted.")
+    sem: list[float] = Field(description="std(ddof=1) / sqrt(num_scans) per channel; with dark "
+                             "subtraction combined in quadrature with the dark spectrum's SEM.")
+    dark_subtracted: bool = False
+    raw_mean: list[float] | None = Field(None, description="Only with dark subtraction: mean before subtracting.")
+    raw_sem: list[float] | None = None
+    dark: list[float] | None = Field(None, description="Only with dark subtraction: the dark spectrum used.")
+    dark_sem: list[float] | None = None
+    dark_scans: int | None = None
+
+
+class CalibrationLine(BaseModel):
+    pixel: float = Field(description="Channel (pixel) of the line; may be fractional (peak centre).")
+    wavelength_nm: float = Field(description="Known wavelength of the line, e.g. from a Hg lamp.")
+
+
+class CalibrationRequest(BaseModel):
+    coefficients: list[float] | None = Field(
+        None, description="c0..c3 of lambda(p) = c0 + c1 p + c2 p^2 + c3 p^3. If given, the lines "
+        "are only kept for comparison.")
+    lines: list[CalibrationLine] | None = Field(
+        None, description="Reference lines to fit (without coefficients).")
+    order: int | None = Field(None, ge=1, le=3, description="Polynomial order of the fit "
+                              "(default: number of lines - 1, at most 3).")
+
+
+class CalibrationPreview(BaseModel):
+    lines: list[CalibrationLine] = Field(description="Reference lines to fit.")
+    order: int | None = Field(None, ge=1, le=3)
+    reference: list[float] = Field(description="Coefficients to compare the fit with, e.g. the "
+                                   "calibration an example spectrum was recorded with.")
+    pixels: int = Field(2048, ge=4, le=100_000, description="Number of channels of that spectrometer.")
 
 
 class Histogram(BaseModel):

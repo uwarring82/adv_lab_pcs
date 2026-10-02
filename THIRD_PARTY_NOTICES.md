@@ -46,11 +46,22 @@ bootloader is licensed under the GPL-2.0 with an exception that explicitly allow
 distributing the resulting executables under any license, including this
 project's MIT license.
 
-## Not included: Ocean Insight software
+## Not included: Ocean Insight software and drivers
 
 OceanView, OmniDriver and Ocean Insight's USB drivers are proprietary and are
 **not** part of this repository. The optional `windows/ocean-optics-setup/vendor/`
 folder is only a place to put installers you obtained yourself.
+
+The dashboard's **Install driver** function (Windows) downloads Ocean Optics'
+WHQL-signed WinUSB driver files at the user's request from the
+[python-seabreeze](https://github.com/ap--/python-seabreeze) repository (the package its
+`seabreeze_os_setup` installs; commit `3313d15`, verified by SHA-256); they are not
+included in this repository or the executable.
+
+## Example spectra
+
+The spectra in `spectro-dashboard/web/examples/` were recorded in the Freiburg advanced
+lab for this project and are covered by its MIT license.
 
 ## Trademarks
 

@@ -6,8 +6,12 @@ Two modes, following the lab's earlier USB2000 analysis notebook:
   * live        -- mean +- SEM over ``scans_to_average`` scans, with optional dark
                    subtraction and boxcar smoothing, for the preview;
   * measurement -- N raw scans -> per-channel mean, standard error of the mean
-                   (std with ddof=1, divided by sqrt(N)), and the scan block kept
-                   for per-channel intensity histograms (np.histogram, bins='auto').
+                   (std with ddof=1, divided by sqrt(N)), optionally minus the dark
+                   spectrum; the raw scan block is kept for per-channel intensity
+                   histograms (np.histogram, bins='auto').
+
+Wavelengths come from the device's factory calibration or from a custom one (see
+calibration.py), saved per device.
 
 Requests are checked against hard limits (memory, instrument time, detector size)
 before the device is touched: invalid ones raise AcquisitionError, and device
@@ -22,6 +26,9 @@ from dataclasses import asdict, dataclass, replace
 import numpy as np
 
 from .backend import SpectrometerBackend, open_backend
+from .calibration import (
+    CalibrationError, CalibrationStore, check_coefficients, compare, evaluate,
+    factory_coefficients, fit_lines)
 
 MAX_LIVE_SCANS = 1000             # live: scans averaged per spectrum
 MAX_LIVE_SECONDS = 30.0           # live averaging: scans_to_average x integration time, for 2+ scans
@@ -45,7 +52,7 @@ class AcquisitionConfig:
     integration_time_ms: float = 100.0
     scans_to_average: int = 1      # live: mean +- SEM over this many scans
     boxcar_width: int = 0          # live: smoothing half-width in pixels; 0 = off
-    subtract_dark: bool = False    # live: subtract the dark taken at this integration time
+    subtract_dark: bool = False    # live and measurements: subtract the dark taken at this integration time
 
 
 def _mean_sem(block: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -55,6 +62,11 @@ def _mean_sem(block: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     if n < 2:
         return mean, np.zeros_like(mean)
     return mean, block.std(axis=0, ddof=1, dtype=np.float64) / np.sqrt(n)
+
+
+def _subtract_dark(mean: np.ndarray, sem: np.ndarray, dark: dict) -> tuple[np.ndarray, np.ndarray]:
+    """Signal minus dark; the two are independent, so their SEMs add in quadrature."""
+    return mean - dark["spectrum"], np.sqrt(sem ** 2 + dark["sem"] ** 2)
 
 
 def _boxcar(y: np.ndarray, sem: np.ndarray, half_width: int) -> tuple[np.ndarray, np.ndarray]:
@@ -97,21 +109,90 @@ def _resolve_bins(x: np.ndarray, bins: int | str) -> tuple[int | str, bool]:
 
 class AcquisitionManager:
     def __init__(self, prefer_sim: bool = False, backend: SpectrometerBackend | None = None,
-                 opener=open_backend):
+                 opener=open_backend, calibration_store: CalibrationStore | None = None):
         self._lock = threading.Lock()          # the device
         self._measure_lock = threading.Lock()  # one measurement at a time
         self._opener = opener                  # replaceable for tests
+        self._store = calibration_store or CalibrationStore(None)  # None: in memory only
         self.forced_sim = prefer_sim and backend is None
         self._dev = backend if backend is not None else opener(prefer_sim=prefer_sim)
-        self._wl = np.asarray(self._dev.wavelengths(), dtype=np.float64)
+        self.is_simulated = self._dev.__class__.__name__ == "SimulatedSpectrometer"
+        self.fallback_reason = getattr(self._dev, "_fallback_reason", None)
         self._cfg = AcquisitionConfig()
-        self._dark: dict | None = None         # spectrum + the integration time it was taken at
+        self._dark: dict | None = None         # mean, SEM and the integration time it was taken at
         self._measurement: dict | None = None
         self._measurement_seq = 0
         self._progress = {"running": False, "done": 0, "total": 0}
-        self.is_simulated = self._dev.__class__.__name__ == "SimulatedSpectrometer"
-        self.fallback_reason = getattr(self._dev, "_fallback_reason", None)
+        self._load_calibration()
         self._dev.set_integration_time_ms(self._cfg.integration_time_ms)
+
+    # --- wavelength calibration ---------------------------------------------
+    def _device_key(self) -> str:
+        return f"{self._dev.model}:{self._dev.serial}"
+
+    def _apply_calibration(self, cal: dict | None) -> None:
+        self._calibration = cal
+        self._wl = (self._factory_wl.copy() if cal is None
+                    else evaluate(cal["coefficients"], np.arange(self._factory_wl.size)))
+
+    def _load_calibration(self) -> None:
+        """Factory wavelengths from the device, then this device's saved custom calibration."""
+        self._factory_wl = np.asarray(self._dev.wavelengths(), dtype=np.float64)
+        self._calibration_save_error = None
+        cal = self._store.load(self._device_key())
+        try:
+            if cal is not None:
+                cal = {**cal, "coefficients": check_coefficients(cal["coefficients"], self._factory_wl.size)}
+        except (CalibrationError, KeyError, TypeError):
+            cal = None  # saved calibration does not fit this device: use the factory one
+        self._apply_calibration(cal)
+
+    def calibration_info(self) -> dict:
+        n = self._factory_wl.size
+        factory = factory_coefficients(self._factory_wl)
+        cal = self._calibration
+        custom = cal["coefficients"] if cal else None
+        return {
+            "active": "custom" if cal else "factory",
+            "source": cal.get("source") if cal else None,
+            "order": cal.get("order") if cal else None,
+            "pixels": int(n),
+            "factory_coefficients": factory,
+            "custom_coefficients": custom,
+            "comparison": compare(factory, custom, cal.get("lines") if cal else None, n),
+            "saved_in": str(self._store.path) if self._store.path else None,
+            "save_error": self._calibration_save_error,
+        }
+
+    def set_calibration(self, coefficients=None, lines=None, order=None) -> dict:
+        """Activate a custom calibration: entered ``coefficients`` (``lines`` are then
+        only kept for comparison), or a fit of order ``order`` to reference ``lines``."""
+        self._check_idle()
+        n = self._factory_wl.size
+        pairs = [(l["pixel"], l["wavelength_nm"]) for l in lines] if lines else []
+        if coefficients is not None:
+            c = check_coefficients(coefficients, n)
+            nonzero = [i for i, x in enumerate(c) if x != 0.0]
+            cal = {"coefficients": c, "source": "coefficients", "order": max(nonzero, default=0),
+                   "lines": [{"pixel": float(p), "wavelength_nm": float(w)} for p, w in pairs]}
+        elif pairs:
+            fit = fit_lines(pairs, n, order)
+            cal = {"coefficients": fit["coefficients"], "source": "fit", "order": fit["order"],
+                   "lines": fit["lines"]}
+        else:
+            raise CalibrationError("Give either coefficients or reference lines.")
+        with self._lock:
+            self._apply_calibration(cal)
+        self._calibration_save_error = self._store.save(self._device_key(), cal)
+        return self.calibration_info()
+
+    def reset_calibration(self) -> dict:
+        """Back to the factory calibration stored in the device."""
+        self._check_idle()
+        with self._lock:
+            self._apply_calibration(None)
+        self._calibration_save_error = self._store.save(self._device_key(), None)
+        return self.calibration_info()
 
     # --- info -------------------------------------------------------------
     @property
@@ -138,6 +219,8 @@ class AcquisitionManager:
             "fallback_reason": self.fallback_reason,
             "has_dark": dark is not None,
             "dark_integration_time_ms": dark["integration_time_ms"] if dark else None,
+            "dark_scans": dark["scans"] if dark else None,
+            "calibration": "custom" if self._calibration else "factory",
             "has_measurement": self._measurement is not None,
             "limits": {
                 "max_scans_to_average": MAX_LIVE_SCANS,
@@ -238,7 +321,7 @@ class AcquisitionManager:
             if cfg.subtract_dark:
                 # update_config/clear_dark keep subtract_dark on only while a dark
                 # taken at the current integration time exists.
-                mean = mean - self._dark["spectrum"]
+                mean, sem = _subtract_dark(mean, sem, self._dark)
             mean, sem = _boxcar(mean, sem, cfg.boxcar_width)
         return {
             "timestamp": time.time(),
@@ -251,8 +334,9 @@ class AcquisitionManager:
 
     def measure(self, num_scans: int) -> dict:
         """Statistical measurement as in the lab notebook: ``num_scans`` raw scans
-        (no dark subtraction, no smoothing) -> per-channel mean and SEM. The scan
-        block is kept so per-channel histograms can be requested afterwards.
+        -> per-channel mean and SEM, minus the dark spectrum if ``subtract_dark`` is
+        on (its SEM adds in quadrature; no smoothing). The raw scan block is kept for
+        per-channel histograms, which therefore always show raw detector counts.
         Only one measurement runs at a time; a second call raises Busy."""
         num_scans = int(num_scans)
         if not 2 <= num_scans <= MAX_SCANS:
@@ -267,12 +351,15 @@ class AcquisitionManager:
                         f"{num_scans} scans x {self._cfg.integration_time_ms:g} ms = {seconds:g} s; "
                         f"measurements are limited to {MAX_MEASUREMENT_SECONDS:g} s.")
                 cfg = asdict(self._cfg)
+                dark = self._dark if self._cfg.subtract_dark else None
                 self._progress = {"running": True, "done": 0, "total": num_scans}
                 block = self._scan_block(num_scans)
-                mean, sem = _mean_sem(block)
+                raw_mean, raw_sem = _mean_sem(block)
+                mean, sem = _subtract_dark(raw_mean, raw_sem, dark) if dark else (raw_mean, raw_sem)
                 self._measurement_seq += 1
                 m = {"id": self._measurement_seq, "timestamp": time.time(), "num_scans": num_scans,
-                     "config": cfg, "block": block, "mean": mean, "sem": sem}
+                     "config": cfg, "block": block, "mean": mean, "sem": sem,
+                     "raw_mean": raw_mean, "raw_sem": raw_sem, "dark": dark}
                 self._measurement = m  # publish in one step, after the statistics exist
             return self._summary(m)
         finally:
@@ -280,16 +367,24 @@ class AcquisitionManager:
             self._measure_lock.release()
 
     def _summary(self, m: dict) -> dict:
-        return {
+        dark = m["dark"]
+        out = {
             "id": m["id"],
             "timestamp": m["timestamp"],
             "model": self._dev.model,
             "num_scans": m["num_scans"],
             "config": m["config"],
+            "calibration": "custom" if self._calibration else "factory",
             "wavelengths": self._wl.tolist(),
             "mean": m["mean"].tolist(),
             "sem": m["sem"].tolist(),
+            "dark_subtracted": dark is not None,
         }
+        if dark is not None:
+            out.update(raw_mean=m["raw_mean"].tolist(), raw_sem=m["raw_sem"].tolist(),
+                       dark=dark["spectrum"].tolist(), dark_sem=dark["sem"].tolist(),
+                       dark_scans=dark["scans"])
+        return out
 
     def measurement_summary(self) -> dict | None:
         m = self._measurement
@@ -321,17 +416,18 @@ class AcquisitionManager:
             "bins_capped": capped,
             "mean": float(x.mean()),
             "std": float(x.std(ddof=1)),
-            "sem": float(m["sem"][channel]),
+            "sem": float(m["raw_sem"][channel]),  # of the raw counts shown in the histogram
         }
 
     # --- dark reference ---------------------------------------------------
     def store_dark(self) -> dict:
-        """Store the mean of ``scans_to_average`` raw scans as the dark reference
-        for the current integration time."""
+        """Store the mean (and SEM) of ``scans_to_average`` raw scans as the dark
+        reference for the current integration time."""
         self._check_idle()
         with self._lock:
-            spectrum, _ = self._live_mean_sem(self._cfg.scans_to_average)
-            self._dark = {"spectrum": spectrum, "integration_time_ms": self._cfg.integration_time_ms,
+            spectrum, sem = self._live_mean_sem(self._cfg.scans_to_average)
+            self._dark = {"spectrum": spectrum, "sem": sem,
+                          "integration_time_ms": self._cfg.integration_time_ms,
                           "scans": self._cfg.scans_to_average, "timestamp": time.time()}
             return {"has_dark": True, "integration_time_ms": self._dark["integration_time_ms"],
                     "scans": self._dark["scans"]}
@@ -359,12 +455,12 @@ class AcquisitionManager:
                 return {"connected": False, "reason": self.fallback_reason}
             self._dev.close()
             self._dev = new
-            self._wl = np.asarray(new.wavelengths(), dtype=np.float64)
             self._cfg = AcquisitionConfig()
             self._dark = None
             self._measurement = None
             self.is_simulated = self.forced_sim = False
             self.fallback_reason = None
+            self._load_calibration()  # this device's own factory/custom calibration
             new.set_integration_time_ms(self._cfg.integration_time_ms)
             return {"connected": True, "model": new.model, "serial": new.serial}
 

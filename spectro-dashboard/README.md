@@ -56,6 +56,9 @@ run.py                     entry point (start server + open browser)
 spectro/
   app.py                   FastAPI: REST + WebSocket + CSV + static files
   acquisition.py           limits, live processing, N-scan statistics (thread-safe)
+  calibration.py           wavelength calibration: fit, comparison, saved per device
+  diagnostics.py           why no spectrometer is found, with next steps
+  driver.py                Windows: install Ocean Optics' signed WinUSB driver
   models.py                pydantic schema (also drives /docs)
   backend/
     base.py                SpectrometerBackend interface
@@ -63,6 +66,7 @@ spectro/
     sim_backend.py         simulated USB2000+ (no hardware needed)
 web/                       dashboard (index.html, app.js, style.css); no build step
   spectrum_color.js        wavelength -> sRGB (CIE 1931) for the colour strip
+  examples/                real spectra from the lab (CSV + index.json)
   lib/                     uPlot 1.6.31 (MIT), vendored so it works offline
 examples/student_client.py scripting example
 tests/                     pytest suite
@@ -71,6 +75,8 @@ packaging/build_exe.ps1    PyInstaller build
 
 ## Status
 
-Tested with the simulator: the pytest suite, all endpoints, and the dashboard in a
-headless browser. **Not yet run against a real spectrometer.** Please report results
+Tested with the simulator (pytest suite, all endpoints, the dashboard in a headless
+browser) and, as of 0.3.1, with a real USB2000+ on Windows 11 (live view, averaging,
+measurements, CSV). The 0.4.0 additions (calibration, driver installation, dark
+subtraction in measurements) have not been tried on hardware yet. Please report results
 from real setups (see [CONTRIBUTING.md](../CONTRIBUTING.md)).

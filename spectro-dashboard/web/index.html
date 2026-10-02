@@ -22,16 +22,21 @@
         <label>Integration time (ms)<input type="number" id="integration" min="1" step="1" value="100" /></label>
         <label>Scans to average<input type="number" id="average" min="1" max="1000" step="1" value="1" /></label>
         <label>Boxcar half-width (px)<input type="number" id="boxcar" min="0" step="1" value="0" /></label>
-        <label class="check"><input type="checkbox" id="subdark" /> Subtract dark</label>
         <button id="apply">Apply</button>
       </div>
       <div class="group">
         <button id="live" class="primary">Start live</button>
         <button id="single">Single shot</button>
+        <select id="example" title="Real spectra from the lab, also without a spectrometer">
+          <option value="">Example spectra…</option>
+        </select>
       </div>
       <div class="group">
-        <button id="dark">Store dark</button>
+        <button id="dark" title="Block the light first: stores the mean of 'Scans to average' scans at the current integration time">Store dark</button>
         <button id="cleardark">Clear dark</button>
+        <label class="check" title="Applies at once, to the live view and to measurements">
+          <input type="checkbox" id="subdark" disabled /> Subtract dark</label>
+        <span id="darkstatus" class="chip">no dark spectrum</span>
       </div>
       <div class="group">
         <button id="csv">Live CSV</button>
@@ -44,6 +49,7 @@
       <div class="figbar">
         <span class="figtitle" id="source">Spectrum</span>
         <span class="opts">
+          <button id="calchip" class="chip" type="button" title="Wavelength calibration: compare and change">λ calibration: factory</button>
           <label class="check"><input type="radio" name="xaxis" value="channel" checked /> Channel</label>
           <label class="check"><input type="radio" name="xaxis" value="wavelength" /> Wavelength</label>
           <label class="check"><input type="checkbox" id="logy" /> Log y</label>
@@ -52,11 +58,19 @@
           <label class="check"><input type="checkbox" id="color" checked /> Color</label>
         </span>
       </div>
+      <p id="exinfo" class="exinfo" hidden></p>
       <div id="plot" class="plot"></div>
       <!-- Illustration of the visible spectrum, aligned with the plot's x axis -->
       <div id="stripwrap" class="stripwrap" hidden>
         <span id="striplabel" class="striplabel">Visible<br />spectrum</span>
         <canvas id="strip"></canvas>
+      </div>
+      <div class="zoombar">
+        <label class="check">x from <input type="number" id="xmin" step="any" class="narrow" /></label>
+        <label class="check">to <input type="number" id="xmax" step="any" class="narrow" /></label>
+        <span id="xunit" class="hint">channel</span>
+        <button id="zoomreset" type="button">Reset zoom</button>
+        <span class="hint">or drag across the plot to zoom in; double-click to reset</span>
       </div>
       <div class="readout" id="readout">Click a channel to see its intensity histogram.</div>
     </section>
@@ -65,8 +79,9 @@
     <div class="row">
       <section class="card measure">
         <h2>Measurement</h2>
-        <p class="hint">Take N raw scans → per-channel mean and standard error
-          (std / √N). Raw counts: no dark subtraction or smoothing.</p>
+        <p class="hint">Take N scans → per-channel mean and standard error
+          (std / √N), minus the dark spectrum if "Subtract dark" is on. No smoothing;
+          histograms always show raw counts.</p>
         <label>Number of scans<input type="number" id="nscans" min="2" max="5000" step="1" value="200" /></label>
         <div class="btnrow">
           <button id="measure" class="primary">Measure</button>
@@ -104,6 +119,7 @@
     <p id="diagsummary"></p>
     <ul id="diaghints"></ul>
     <div class="btnrow">
+      <button id="diaginstall" class="primary" type="button" hidden>Install driver</button>
       <button id="diagretry" class="primary" type="button" hidden>Retry hardware</button>
       <button id="diagcopy" type="button">Copy report</button>
       <button id="diagclose" type="button">Close</button>
@@ -112,6 +128,53 @@
       <summary>Full report (send this when asking for help)</summary>
       <pre id="diagjson" class="snippet"></pre>
     </details>
+  </dialog>
+
+  <!-- Wavelength calibration: factory and custom side by side -->
+  <dialog id="cal" class="diag cal">
+    <h2>Wavelength calibration</h2>
+    <p id="calsummary"></p>
+
+    <h3>Reference lines</h3>
+    <p class="hint">Click a peak in the spectrum, then <b>Add selected peak</b> and enter its
+      known wavelength (e.g. a mercury line). The table shows where each line falls under
+      both calibrations. Spread the lines over the whole range: beyond the outermost lines
+      the fit is an extrapolation.</p>
+    <table id="caltable" class="caltable">
+      <thead>
+        <tr><th>Pixel</th><th>Known λ (nm)</th><th>Factory λ</th><th>Factory Δ</th>
+            <th>Custom λ</th><th>Custom Δ</th><th></th></tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr><td colspan="3">RMS deviation</td><td id="rmsf">–</td><td></td><td id="rmsc">–</td><td></td></tr>
+      </tfoot>
+    </table>
+    <div class="btnrow">
+      <button id="caladdpeak" type="button">Add selected peak</button>
+      <button id="caladdrow" type="button">Add empty row</button>
+      <label class="check">Order
+        <select id="calorder"><option value="">auto</option><option>1</option><option>2</option><option>3</option></select></label>
+      <button id="calfit" class="primary" type="button">Fit lines and use</button>
+    </div>
+
+    <h3>Polynomial λ(p) = c0 + c1·p + c2·p² + c3·p³</h3>
+    <table class="caltable coef">
+      <thead><tr><th></th><th>Factory (in the spectrometer)</th><th>Custom</th></tr></thead>
+      <tbody id="calcoef"></tbody>
+    </table>
+    <p id="caldiff" class="hint"></p>
+    <div class="btnrow">
+      <button id="calapply" type="button">Use these coefficients</button>
+      <button id="calreset" type="button">Back to factory calibration</button>
+      <button id="calclose" type="button">Close</button>
+    </div>
+    <p id="calmsg" class="hint"></p>
+    <datalist id="lamplines">
+      <option value="404.656">Hg</option><option value="435.833">Hg</option>
+      <option value="546.074">Hg</option><option value="576.960">Hg</option>
+      <option value="579.066">Hg</option>
+    </datalist>
   </dialog>
 
   <script src="lib/uPlot.iife.min.js"></script>

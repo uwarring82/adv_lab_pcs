@@ -25,6 +25,9 @@ spectro-dashboard/
   spectro/
     app.py                    FastAPI app: REST, WebSocket, CSV, static files, error mapping
     acquisition.py            AcquisitionManager: limits, live processing, measurements
+    calibration.py            wavelength calibration (fit, comparison, per-device store)
+    diagnostics.py            connection diagnostics and hints
+    driver.py                 Windows driver download/verification/installation
     models.py                 pydantic request/response models (also the /docs schema)
     backend/                  SpectrometerBackend interface, seabreeze and simulator
   web/                        dashboard: index.html, app.js, style.css, spectrum_color.js

@@ -29,11 +29,12 @@ want to automate measurements, see [Scripting](#scripting-your-own-measurements)
 | Integration time (ms) | Exposure time of one scan. Longer means more signal, but watch for saturation. |
 | Scans to average | Live view: average this many scans into each displayed spectrum. The grey band then shows the standard error of that mean. |
 | Boxcar half-width (px) | Live view: smooth over ±N neighbouring channels (0 = off). |
-| Subtract dark | Live view: subtract the stored dark spectrum (see [Dark spectrum](#dark-spectrum)). |
 | Apply | Sends the changed settings. Invalid settings are rejected with a red message and nothing changes. |
 | Start live / Stop live | Continuous acquisition. |
 | Single shot | Take one spectrum. |
-| Store dark / Clear dark | Record or discard the dark spectrum. |
+| Example spectra… | Show a real spectrum recorded in the lab (see [Example spectra](#example-spectra)). |
+| Store dark / Clear dark | Record or discard the dark spectrum. The label next to it shows whether one is stored. |
+| Subtract dark | Subtract the stored dark spectrum, at once, in the live view and in measurements (see [Dark spectrum](#dark-spectrum)). Available once a dark spectrum is stored. |
 | Live CSV | Save the current live spectrum as a CSV file. |
 
 Messages appear below the controls: grey when a setting was applied, amber for a
@@ -50,13 +51,16 @@ warning, red when something was rejected, always with the reason.
 - The **grey band** is ± one standard error of the mean (switch it off with *±SEM*).
   It is only visible when you average several scans and zoom in.
 - **Channel / Wavelength** switches the horizontal axis between pixel number and
-  calibrated wavelength.
+  calibrated wavelength. The label **λ calibration** above the plot says which
+  calibration the wavelengths come from; a custom one is highlighted, and the axis then
+  reads "custom calibration" (see [Wavelength calibration](#wavelength-calibration)).
 - **Log y** uses a logarithmic intensity axis, useful for weak features next to strong
   lines.
 - **Autoscale y** fits the vertical axis to the data you are looking at (otherwise it
   is fixed to 0 … 2¹⁶).
-- **Zoom**: drag across the plot. The zoom is kept while live data updates. Double-click
-  to reset.
+- **Zoom**: drag across the plot, or type the range into **x from … to** under the plot.
+  **Reset zoom** (or a double-click) shows everything again. The zoom is kept while live
+  data updates.
 - **Click a channel** to select it (orange dashed line) and show its histogram.
 
 ### Visible-spectrum strip
@@ -80,10 +84,10 @@ The live view is for aligning and looking. For data you want to analyse, use
    of the N scans).
 4. **Save CSV** stores channel, wavelength, mean and SEM for every channel.
 
-Measurements always use the **raw counts** of the detector: no dark subtraction and no
-smoothing, so the statistics are those of the detector itself. If you need a dark
-correction, measure a dark spectrum the same way (light blocked) and subtract it in
-your analysis.
+Measurements are never smoothed. If **Subtract dark** is on, the mean is corrected by
+the dark spectrum and the SEM includes the dark spectrum's uncertainty (the two add in
+quadrature); the CSV file then also contains the raw values and the dark spectrum. The
+histograms always show the raw counts of the detector.
 
 ### Histogram of one channel
 
@@ -100,16 +104,62 @@ After a measurement, click any channel in the plot (or type its number) to see t
 ## Dark spectrum
 
 The dark spectrum is what the detector reads without light (electronic offset and dark
-current). To use it in the live view:
+current). To subtract it:
 
-1. Block the light path (cap the fibre, or switch off the source).
-2. Click **Store dark**. It averages *Scans to average* scans at the current
-   integration time.
-3. Unblock the light, tick **Subtract dark** and click **Apply**.
+1. Set the integration time you will measure with, and set *Scans to average* to 10 or
+   more, so the dark spectrum itself is not too noisy.
+2. Block the light path (cap the fibre, or switch off the source) and click
+   **Store dark**. The label next to it now shows "dark: … ms".
+3. Unblock the light and tick **Subtract dark**. It acts at once, in the live view and
+   in measurements; the plot title then says "dark subtracted".
 
 A dark spectrum only fits the integration time it was taken at. If you change the
 integration time, it is discarded automatically, subtraction switches off, and an
 amber message asks you to store a new one.
+
+The dark level is typically a few hundred to about two thousand counts, so on the full
+0 … 2¹⁶ scale the difference is hard to see: switch on **Autoscale y** or **Log y** to
+see it.
+
+## Wavelength calibration
+
+The spectrometer converts each channel p to a wavelength with a polynomial
+λ(p) = c0 + c1·p + c2·p² + c3·p³ stored in the device (the *factory calibration*). It
+can drift or be inaccurate; you can check and replace it with lines of known
+wavelength, for example from a mercury lamp (404.656, 435.833, 546.074, 576.960 and
+579.066 nm).
+
+1. Record the lamp spectrum (live or as a measurement) and click **λ calibration** above
+   the plot. The calibration panel opens next to the plot.
+2. Click a peak in the spectrum, then **Add selected peak**: the panel takes the
+   centre of that peak, with sub-channel precision. Enter the line's known wavelength.
+   Repeat for lines spread over the whole range.
+3. The table compares both calibrations for every line: where it falls under the
+   factory calibration and under the custom one, each with its deviation Δ from the
+   known wavelength, plus the RMS deviation.
+4. **Fit lines and use** fits the polynomial (order: number of lines − 1, at most 3, or
+   choose it) and uses it for all wavelengths, plots and CSV files. Alternatively, type
+   coefficients and click **Use these coefficients**.
+
+A custom calibration is saved for this spectrometer (by serial number) and used again
+next time; the label above the plot is then highlighted. **Back to factory
+calibration** returns to the values stored in the device. Beyond the outermost lines a
+fit is an extrapolation: the panel shows the largest difference between the two
+calibrations across the detector.
+
+## Example spectra
+
+**Example spectra…** in the top bar shows real spectra recorded in the lab with a
+USB2000+: spectral lamps (mercury, cadmium, helium-neon, sodium), sunlight with its
+Fraunhofer lines, a candle, a smartphone screen, a desk lamp and the absorption bands
+of iodine. They work without a spectrometer; a blue note above the plot marks them as
+examples. Live view, **Single shot** or **Measure** return to your own data.
+
+Examples contain the mean and SEM of the original measurement, so there are no
+histograms. With an example on screen, the calibration panel is a **practice mode**:
+fit the known lines of the mercury or cadmium lamp and compare the result with the
+calibration the spectrum was recorded with, without changing your own spectrometer's
+calibration. In the mercury example the blue lines come out about 0.2–0.3 nm too high.
 
 ## Limits you may run into
 

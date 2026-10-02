@@ -108,6 +108,36 @@ button.primary.on { background: var(--ok); border-color: var(--ok); }
 .diag details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
 .diag pre { max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 
+/* small status chips: dark spectrum, wavelength calibration */
+.chip {
+  display: inline-block; font: inherit; font-size: 12px; padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--line); background: #f3f5f8; color: var(--muted); white-space: nowrap;
+}
+button.chip { cursor: pointer; }
+.chip.ok { background: #e3f4e3; border-color: #bfe3bf; color: #1b7a1b; }
+/* a custom calibration must be obvious to students */
+.chip.custom { background: #fdf0d8; border-color: #f0c674; color: #8a5a00; font-weight: 600; }
+.toolbar .group .chip { margin-bottom: 7px; }
+select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid #c3c9d2; background: #fff; }
+
+.zoombar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 6px; font-size: 13px; }
+.zoombar .hint { margin: 0; }
+.zoombar input.narrow { width: 90px; }
+.exinfo { margin: 0 0 6px; padding: 6px 10px; border-radius: 6px; background: #eef4fb; color: #24486e; font-size: 12.5px; }
+
+/* calibration: a side panel, not modal, so peaks can still be clicked in the plot */
+.cal {
+  position: fixed; top: 64px; right: 16px; left: auto; margin: 0; z-index: 20;
+  width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 84px); overflow: auto;
+}
+.cal h3 { font-size: 13px; margin: 14px 0 6px; }
+.caltable { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.caltable th, .caltable td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: right; }
+.caltable th:first-child, .caltable td:first-child { text-align: left; }
+.caltable input { width: 100%; min-width: 70px; padding: 3px 5px; border: 1px solid var(--line); border-radius: 4px; font: inherit; text-align: right; }
+.caltable tfoot td { font-weight: 600; border-bottom: 0; }
+.caltable td button { padding: 1px 7px; }
+
 .progress { height: 6px; background: #eef1f5; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
 #pbar { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 

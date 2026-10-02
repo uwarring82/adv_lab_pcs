@@ -107,7 +107,7 @@ jobs:
             if (-not $status.info.simulated) { throw 'Expected the simulator backend.' }
             $page = Invoke-WebRequest http://127.0.0.1:8777/ -UseBasicParsing
             if ($page.Content -notmatch 'Spectrometer Dashboard') { throw 'Dashboard page not served.' }
-            foreach ($asset in 'app.js', 'spectrum_color.js', 'lib/uPlot.iife.min.js') {
+            foreach ($asset in 'app.js', 'spectrum_color.js', 'lib/uPlot.iife.min.js', 'examples/index.json', 'examples/hg.csv') {
               Invoke-WebRequest "http://127.0.0.1:8777/$asset" -UseBasicParsing | Out-Null
             }
             $s = Invoke-RestMethod http://127.0.0.1:8777/api/spectrum
