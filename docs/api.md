@@ -54,6 +54,8 @@ A complete example, including a plot in the lab-notebook style, is
 |---|---|
 | `GET /api/health` | `{"status": "ok"}` |
 | `GET /api/status` | `{"info": {...}, "config": {...}}`: device model, serial, number of pixels, wavelength and integration-time range, `simulated` (and `fallback_reason` if no hardware was found), dark-spectrum and measurement state, and the `limits` below |
+| `GET /api/diagnostics` | Why no spectrometer is used, with next steps in `hints`: the seabreeze backend that loads and the devices it sees, and on Windows every Ocean Optics USB device (vendor ID 2457) with its driver. Takes a few seconds on Windows. |
+| `POST /api/reconnect` | Looks for the spectrometer again (e.g. after closing OceanView). Returns `{"connected": true, "model", "serial"}` or `{"connected": false, "reason"}`. Switching from the simulator to hardware resets settings, dark spectrum and measurement. |
 
 ### Settings
 

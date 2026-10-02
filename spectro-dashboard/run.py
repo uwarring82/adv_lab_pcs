@@ -48,8 +48,19 @@ def main() -> None:
                 pass
         threading.Thread(target=_open, daemon=True).start()
 
+    mgr = app.state.mgr
+    info = mgr.info()
     print(f"\n  Spectrometer dashboard:  {url}")
-    print(f"  Student API docs:        {url}docs\n")
+    print(f"  Student API docs:        {url}docs")
+    if not info["simulated"]:
+        print(f"  Spectrometer:            {info['model']} (serial {info['serial']})\n")
+    elif mgr.forced_sim:
+        print("  Spectrometer:            SIMULATOR (started with --sim)\n")
+    else:
+        # Make the reason visible where testers look first.
+        print("  Spectrometer:            none found -> using the SIMULATOR")
+        print(f"  Reason:                  {info['fallback_reason']}")
+        print(f"  Details and next steps:  click the SIMULATED badge, or open {url}api/diagnostics\n")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 

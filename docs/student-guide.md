@@ -13,8 +13,10 @@ want to automate measurements, see [Scripting](#scripting-your-own-measurements)
    <http://127.0.0.1:8777/>.
 2. The badge at the top right shows the spectrometer model and serial number. If it
    says **SIMULATED**, no spectrometer was found and you are looking at simulated
-   data: check the USB cable, close other programs that use the spectrometer (e.g.
-   OceanView) and restart. Hover over the badge to see the reason.
+   data. A window then explains why and what to do (click the badge to open it
+   again). Typical fixes: check the USB cable, close other programs that use the
+   spectrometer (e.g. OceanView), then click **Retry hardware**. If it still does not
+   work, click **Copy report** and send the text to your instructor.
 3. To stop, close the console window. Closing only the browser tab leaves the app
    running; open <http://127.0.0.1:8777/> again to get back.
 

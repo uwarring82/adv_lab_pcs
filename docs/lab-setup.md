@@ -129,7 +129,7 @@ Command-line options (for the shortcut's *Target* field):
 
 | Symptom | Likely cause and fix |
 |---|---|
-| Badge shows **SIMULATED (no hardware found)** | Hover over the badge for the reason. Usually the spectrometer is unplugged, used by another program, or the driver is missing: run `Verify.ps1`. |
+| Badge shows **SIMULATED · no spectrometer found** | Click the badge: the dashboard checks the USB device and its driver and lists the next steps (also printed in the console window at start-up). Typical causes: unplugged, used by another program (close it, then *Retry hardware*), or a driver python-seabreeze cannot use, e.g. the Jungo driver (`windrvr6`) of older Ocean software. That one needs the WinUSB driver from `Install.ps1`, which may affect the older Ocean software on that PC. *Copy report* gives a text to attach to an issue. |
 | `Verify.ps1`: device visible, but seabreeze sees nothing | The driver bound to the device does not suit python-seabreeze's default backend. Re-run `Install.ps1 -DriverSource Seabreeze`. As a last resort python-seabreeze documents binding a WinUSB driver with [Zadig](https://zadig.akeo.ie/) and using its `pyseabreeze` backend. |
 | Device appears as *Unknown device* in Device Manager | No driver installed: run `Install.ps1`. |
 | `Install.ps1` fails at `pip install` or `winget` | No internet access or a proxy: set `HTTP_PROXY` / `HTTPS_PROXY`, or use a vendor installer. The log in `C:\ProgramData\OceanOptics\logs\` has the details. |

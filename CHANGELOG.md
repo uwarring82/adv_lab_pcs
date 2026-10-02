@@ -6,6 +6,30 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-02
+
+First feedback from a real lab PC: the dashboard fell back to the simulator without
+saying why.
+
+### Added
+
+- **Connection diagnostics**: when no spectrometer is found, the dashboard explains why
+  and what to do. It checks which seabreeze backend loads, which devices it sees and, on
+  Windows, every Ocean Optics USB device with its driver (e.g. a Jungo driver from
+  older Ocean software instead of WinUSB). Opens automatically, and from the badge;
+  *Copy report* gives a text to send. Also at `GET /api/diagnostics`.
+- **Retry hardware** (`POST /api/reconnect`): look for the spectrometer again, e.g.
+  after closing OceanView, without restarting.
+- The console window prints the spectrometer, or the reason for the fallback, at
+  start-up.
+- CI starts the executable without `--sim` and checks that the hardware backend loads
+  and the USB query works inside the executable.
+
+### Fixed
+
+- The page could become wider than the window and be cut off on the right after the
+  window was resized; the plots now follow their container's size.
+
 ## [0.3.0] - 2026-10-01: first public version
 
 ### Spectrometer dashboard (`spectro-dashboard/`)

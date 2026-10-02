@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .acquisition import AcquisitionError, AcquisitionManager, Busy
 from .backend import SpectrometerBackend
+from .diagnostics import collect as collect_diagnostics
 from .models import ConfigUpdate, Histogram, Measurement, MeasurementRequest, Spectrum
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
@@ -75,6 +76,20 @@ def create_app(prefer_sim: bool = False, backend: SpectrometerBackend | None = N
     @app.get("/api/status", tags=["info"])
     def status():
         return {"info": mgr.info(), "config": mgr.get_config()}
+
+    @app.get("/api/diagnostics", tags=["info"])
+    def diagnostics():
+        """Why no spectrometer is used, with next steps (`hints`): which seabreeze
+        backend loads, which devices it sees and, on Windows, each Ocean Optics USB
+        device with its driver. Takes a few seconds on Windows."""
+        return collect_diagnostics(mgr)
+
+    @app.post("/api/reconnect", tags=["info"])
+    def reconnect():
+        """Look for the spectrometer again, e.g. after closing another program that
+        used it. Switching from the simulator to hardware resets settings, dark
+        spectrum and measurement."""
+        return mgr.reconnect()
 
     @app.get("/api/config", tags=["control"])
     def get_config():

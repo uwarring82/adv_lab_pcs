@@ -119,6 +119,33 @@ jobs:
           finally {
             Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
           }
+      - name: Smoke-test the hardware path (no spectrometer on the runner)
+        shell: powershell
+        run: |
+          # Without --sim the executable must load seabreeze's compiled backend and
+          # query Windows for USB devices, then fall back because none is attached.
+          $exe = 'spectro-dashboard\dist\SpectrometerDashboard.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--no-browser', '--port', '8778' -PassThru
+          try {
+            $d = $null
+            for ($i = 0; $i -lt 60 -and -not $d; $i++) {
+              Start-Sleep -Seconds 1
+              try { $d = Invoke-RestMethod http://127.0.0.1:8778/api/diagnostics -TimeoutSec 60 } catch { }
+            }
+            if (-not $d) { throw 'The executable did not answer within 60 s.' }
+            $d | ConvertTo-Json -Depth 6 | Write-Host
+            if ($d.spectrometer.forced_simulator) { throw 'Unexpected forced simulator.' }
+            if ($d.seabreeze.error) { throw "seabreeze failed in the executable: $($d.seabreeze.error)" }
+            if ($d.seabreeze.backend -ne 'cseabreeze') { throw "Expected the cseabreeze backend, got '$($d.seabreeze.backend)'." }
+            if ($null -eq $d.usb_devices -or $d.usb_devices.error) { throw "USB query failed: $($d.usb_devices.error)" }
+            if ($d.spectrometer.fallback_reason -notmatch 'No Ocean Optics spectrometer found') {
+              throw "Unexpected fallback reason: $($d.spectrometer.fallback_reason)"
+            }
+            Write-Host 'OK: hardware backend loads in the executable; no device attached, as expected.'
+          }
+          finally {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: windows-exe

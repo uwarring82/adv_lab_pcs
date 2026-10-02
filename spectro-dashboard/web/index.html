@@ -12,7 +12,7 @@
 <body>
   <header>
     <h1>Ocean Optics Spectrometer</h1>
-    <span id="badge" class="badge">connecting…</span>
+    <button id="badge" class="badge" type="button">connecting…</button>
   </header>
 
   <main>
@@ -97,6 +97,22 @@
       </section>
     </div>
   </main>
+
+  <!-- Spectrometer connection: why simulated, next steps (opened from the badge) -->
+  <dialog id="diag" class="diag">
+    <h2>Spectrometer connection</h2>
+    <p id="diagsummary"></p>
+    <ul id="diaghints"></ul>
+    <div class="btnrow">
+      <button id="diagretry" class="primary" type="button" hidden>Retry hardware</button>
+      <button id="diagcopy" type="button">Copy report</button>
+      <button id="diagclose" type="button">Close</button>
+    </div>
+    <details>
+      <summary>Full report (send this when asking for help)</summary>
+      <pre id="diagjson" class="snippet"></pre>
+    </details>
+  </dialog>
 
   <script src="lib/uPlot.iife.min.js"></script>
   <script src="spectrum_color.js"></script>

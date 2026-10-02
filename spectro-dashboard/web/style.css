@@ -21,13 +21,18 @@ header {
 }
 header h1 { font-size: 17px; margin: 0; font-weight: 600; }
 .badge {
-  margin-left: auto; font-size: 12px; padding: 3px 10px; border-radius: 999px;
-  background: #eef1f5; color: var(--muted);
+  margin-left: auto; font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  border: 0; background: #eef1f5; color: var(--muted); cursor: pointer;
 }
+.badge:hover { filter: brightness(0.96); }
 .badge.sim { background: #fdf3dc; color: var(--warn); }
 .badge.live { background: #e3f4e3; color: var(--ok); }
 
-main { max-width: 1400px; margin: 0 auto; padding: 14px 16px 24px; display: grid; gap: 14px; }
+main { max-width: 1400px; margin: 0 auto; padding: 14px 16px 24px; display: grid;
+       grid-template-columns: minmax(0, 1fr); gap: 14px; }
+/* Grid items may shrink below their content (a plot canvas drawn at the previous
+   width), otherwise the page grows wider than the window and is cut off. */
+main > *, .row > * { min-width: 0; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
 /* measurement | histogram | scripting; wraps to two rows, then one column */
 .row { display: grid; grid-template-columns: 290px minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
@@ -75,7 +80,7 @@ button.primary.on { background: var(--ok); border-color: var(--ok); }
 .figtitle { font-weight: 600; font-size: 14px; }
 .opts { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .opts label { color: var(--ink); font-size: 13px; }
-.plot { width: 100%; min-height: 60px; }
+.plot { width: 100%; min-height: 60px; overflow: hidden; }
 .readout { margin-top: 4px; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; min-height: 1.4em; }
 
 /* uPlot: draw a black frame round the axes like matplotlib spines, crosshair cursor */
@@ -90,6 +95,18 @@ button.primary.on { background: var(--ok); border-color: var(--ok); }
   padding-right: 8px; font-size: 11px; line-height: 1.2; text-align: right; color: var(--muted);
 }
 #strip { display: block; outline: 1px solid #000; outline-offset: -1px; }
+
+/* spectrometer connection dialog */
+.diag {
+  width: min(720px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 10px;
+  padding: 18px 20px; color: var(--ink); box-shadow: 0 12px 40px rgba(0, 0, 0, .18);
+}
+.diag::backdrop { background: rgba(20, 25, 35, .35); }
+.diag h2 { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0 0 8px; }
+.diag ul { padding-left: 20px; margin: 8px 0 4px; }
+.diag li { margin-bottom: 8px; }
+.diag details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+.diag pre { max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 
 .progress { height: 6px; background: #eef1f5; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
 #pbar { height: 100%; width: 0; background: var(--accent); transition: width .2s; }

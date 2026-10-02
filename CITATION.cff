@@ -15,8 +15,8 @@ authors:
     affiliation: "Institute of Physics, University of Freiburg"
 license: MIT
 repository-code: "https://github.com/uwarring82/adv_lab_pcs"
-version: 0.3.0
-date-released: "2026-10-01"
+version: 0.3.1
+date-released: "2026-10-02"
 keywords:
   - spectroscopy
   - physics education

@@ -96,10 +96,13 @@ def _resolve_bins(x: np.ndarray, bins: int | str) -> tuple[int | str, bool]:
 
 
 class AcquisitionManager:
-    def __init__(self, prefer_sim: bool = False, backend: SpectrometerBackend | None = None):
+    def __init__(self, prefer_sim: bool = False, backend: SpectrometerBackend | None = None,
+                 opener=open_backend):
         self._lock = threading.Lock()          # the device
         self._measure_lock = threading.Lock()  # one measurement at a time
-        self._dev = backend if backend is not None else open_backend(prefer_sim=prefer_sim)
+        self._opener = opener                  # replaceable for tests
+        self.forced_sim = prefer_sim and backend is None
+        self._dev = backend if backend is not None else opener(prefer_sim=prefer_sim)
         self._wl = np.asarray(self._dev.wavelengths(), dtype=np.float64)
         self._cfg = AcquisitionConfig()
         self._dark: dict | None = None         # spectrum + the integration time it was taken at
@@ -339,6 +342,31 @@ class AcquisitionManager:
             self._dark = None
             self._cfg = replace(self._cfg, subtract_dark=False)
         return {"has_dark": False, "subtract_dark": False}
+
+    # --- hardware ---------------------------------------------------------
+    def reconnect(self) -> dict:
+        """Look for the spectrometer again (e.g. after closing OceanView) without
+        restarting. Switching from the simulator to hardware resets the settings,
+        the dark spectrum and the measurement, which belonged to the simulator."""
+        self._check_idle()
+        with self._lock:
+            if not self.is_simulated:
+                return {"connected": True, "model": self._dev.model, "serial": self._dev.serial}
+            new = self._opener(prefer_sim=False)
+            if new.__class__.__name__ == "SimulatedSpectrometer":
+                self.fallback_reason = getattr(new, "_fallback_reason", None)
+                new.close()
+                return {"connected": False, "reason": self.fallback_reason}
+            self._dev.close()
+            self._dev = new
+            self._wl = np.asarray(new.wavelengths(), dtype=np.float64)
+            self._cfg = AcquisitionConfig()
+            self._dark = None
+            self._measurement = None
+            self.is_simulated = self.forced_sim = False
+            self.fallback_reason = None
+            new.set_integration_time_ms(self._cfg.integration_time_ms)
+            return {"connected": True, "model": new.model, "serial": new.serial}
 
     def close(self) -> None:
         with self._lock:

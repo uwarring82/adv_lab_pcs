@@ -47,6 +47,14 @@ def test_dark_notice_on_exposure_change(client):
     assert client.post("/api/config", json={"subtract_dark": True}).status_code == 422
 
 
+def test_diagnostics_and_reconnect_endpoints(client):
+    r = client.get("/api/diagnostics").json()
+    assert r["spectrometer"]["simulated"] is True and r["hints"]
+    assert {"app_version", "python", "platform", "frozen", "seabreeze", "usb_devices"} <= r.keys()
+    rc = client.post("/api/reconnect").json()
+    assert set(rc) >= {"connected"}
+
+
 def test_web_page_is_revalidated_after_updates(client):
     for path in ("/", "/app.js", "/lib/uPlot.iife.min.js"):
         r = client.get(path)

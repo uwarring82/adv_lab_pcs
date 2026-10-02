@@ -508,14 +508,69 @@ async function init() {
   $("nscans").max = info.limits.max_scans;
   const badge = $("badge");
   if (info.simulated) {
-    badge.textContent = "SIMULATED" + (info.fallback_reason ? " (no hardware found)" : "");
+    badge.textContent = "SIMULATED" + (info.fallback_reason ? " · no spectrometer found ⓘ" : "");
     badge.className = "badge sim";
-    if (info.fallback_reason) badge.title = info.fallback_reason;
+    badge.title = (info.fallback_reason ? info.fallback_reason + "\n\n" : "") + "Click for details and next steps.";
   } else {
     badge.textContent = info.model + (info.serial ? ` · ${info.serial}` : "");
+    badge.title = "Click for connection details.";
   }
   if (info.has_measurement) showMeasurement(await getJSON("/api/measurement"));
   else await single();
+  if (info.simulated && info.fallback_reason) openDiagnostics();  // say why right away
+}
+
+// --- Spectrometer connection diagnostics (dialog behind the badge) ----------
+async function openDiagnostics() {
+  const dlg = $("diag");
+  $("diagsummary").textContent = "Checking the spectrometer connection…";
+  $("diaghints").replaceChildren();
+  $("diagjson").textContent = "";
+  $("diagretry").hidden = true;
+  if (!dlg.open) dlg.showModal();
+  try {
+    const r = await getJSON("/api/diagnostics");
+    const s = r.spectrometer;
+    $("diagsummary").textContent = !s.simulated
+      ? `Connected: ${s.model}${s.serial ? " · " + s.serial : ""}`
+      : s.forced_simulator ? "Simulator in use (started with --sim)."
+      : `No spectrometer in use, showing simulated data. Reason: ${s.fallback_reason}`;
+    for (const h of r.hints) {
+      const li = document.createElement("li");
+      li.textContent = h;
+      $("diaghints").append(li);
+    }
+    $("diagjson").textContent = JSON.stringify(r, null, 2);
+    $("diagretry").hidden = !s.simulated;
+  } catch (err) {
+    $("diagsummary").textContent = "Diagnostics failed: " + err.message;
+  }
+}
+async function retryHardware() {
+  if (state.live) stopLive();
+  $("diagsummary").textContent = "Looking for the spectrometer…";
+  try {
+    const r = await postJSON("/api/reconnect");
+    if (r.connected) { location.reload(); return; }
+    await openDiagnostics();
+  } catch (err) {
+    $("diagsummary").textContent = "Retry failed: " + err.message;
+  }
+}
+async function copyReport() {
+  const pre = $("diagjson"), btn = $("diagcopy");
+  try {
+    await navigator.clipboard.writeText(pre.textContent);
+    btn.textContent = "Copied";
+  } catch {  // no clipboard access: select the text for Ctrl+C instead
+    pre.parentElement.open = true;
+    const range = document.createRange();
+    range.selectNodeContents(pre);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    btn.textContent = "Press Ctrl+C";
+  }
+  setTimeout(() => { btn.textContent = "Copy report"; }, 2500);
 }
 
 // --- Wiring ---------------------------------------------------------------
@@ -536,10 +591,16 @@ $("color").onchange = (e) => { state.strip = e.target.checked; if (plot) drawStr
 for (const r of document.querySelectorAll('input[name="xaxis"]')) {
   r.onchange = (e) => { state.xAxis = e.target.value; rebuildMain(); };
 }
-window.addEventListener("resize", () => {
-  if (plot) plot.setSize({ width: $("plot").clientWidth, height: MAIN_H });
-  if (hplot) hplot.setSize({ width: $("hplot").clientWidth, height: HIST_H });
-});
+$("badge").onclick = openDiagnostics;
+$("diagretry").onclick = retryHardware;
+$("diagcopy").onclick = copyReport;
+$("diagclose").onclick = () => $("diag").close();
+// Follow the size of the plot containers (window resize, a scrollbar appearing,
+// zoom), not only window resizes; the containers do not grow with the canvas.
+new ResizeObserver(() => {
+  if (plot && $("plot").clientWidth) plot.setSize({ width: $("plot").clientWidth, height: MAIN_H });
+  if (hplot && $("hplot").clientWidth) hplot.setSize({ width: $("hplot").clientWidth, height: HIST_H });
+}).observe(document.querySelector("main"));
 
 init().catch((err) => {
   $("badge").textContent = "server unreachable";
