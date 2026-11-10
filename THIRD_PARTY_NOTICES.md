@@ -8,6 +8,7 @@ following third-party work.
 ### uPlot 1.6.31
 
 - Files: `spectro-dashboard/web/lib/uPlot.iife.min.js`, `spectro-dashboard/web/lib/uPlot.min.css`
+- The same files and license are also included in `oscilloscope-dashboard/web/lib/`.
 - Source: <https://github.com/leeoniya/uPlot>
 - License: MIT, Copyright (c) 2022 Leon Sorokin. Full text:
   [`spectro-dashboard/web/lib/uPlot.LICENSE`](spectro-dashboard/web/lib/uPlot.LICENSE)
@@ -33,6 +34,9 @@ Installed with `pip` from `requirements.txt`:
 | [pydantic](https://github.com/pydantic/pydantic) | MIT |
 | [NumPy](https://numpy.org) | BSD-3-Clause (plus bundled libraries, see its license file) |
 | [pyusb](https://github.com/pyusb/pyusb) | BSD-3-Clause |
+| [PyVISA](https://github.com/pyvisa/pyvisa) (oscilloscope dashboard) | MIT |
+| [PyVISA-py](https://github.com/pyvisa/pyvisa-py) (oscilloscope dashboard) | MIT |
+| [pySerial](https://github.com/pyserial/pyserial) (oscilloscope dashboard) | BSD-3-Clause |
 
 ## In the packaged Windows executable
 
@@ -40,6 +44,10 @@ Installed with `pip` from `requirements.txt`:
 contains a Python interpreter and the packages above. The build writes their
 license texts to `dist/THIRD_PARTY_LICENSES.txt`; distribute that file together
 with the executable.
+
+`OscilloscopeDashboard.exe` is built separately by
+`oscilloscope-dashboard/packaging/build_exe.ps1`, with its own dependency license
+report. VISA runtimes and instrument drivers are not bundled or redistributed.
 
 The executable is produced with [PyInstaller](https://pyinstaller.org). Its
 bootloader is licensed under the GPL-2.0 with an exception that explicitly allows

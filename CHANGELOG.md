@@ -6,6 +6,14 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Separate local oscilloscope dashboard on port 8778: explicit simulator, PyVISA
+  USB/serial selection, RIGOL DS1000Z/Z-E and HAMEG HMO drivers, instrument controls,
+  single-channel screen previews, statistics, CSV export and a student HTTP API.
+  Includes protocol tests, Windows build script and CI coverage. Hardware validation
+  is pending; HM1508/HM1508-2 and the inventory's HM1022 entry are not yet supported.
+
 ## [0.4.0] - 2026-10-02
 
 From the first test with a real USB2000+ in the lab course.

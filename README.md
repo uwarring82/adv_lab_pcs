@@ -59,7 +59,25 @@ peak to see its histogram.
 
 The [lab setup guide](docs/lab-setup.md) walks through every step.
 
-## Documentation
+## Oscilloscope dashboard (initial version)
+
+The [oscilloscope dashboard](oscilloscope-dashboard/README.md) adds a separate local
+interface on port **8778**, following the spectrometer's FastAPI and offline web
+architecture. It includes a simulator, PyVISA USB/serial connection selection,
+run/stop/single/auto setup, timebase and channel settings, waveform previews and CSV
+export. Drivers are prepared for the inventory's RIGOL DS1000Z/Z-E and HAMEG HMO
+models; **physical-device validation is pending**. HM1508/HM1508-2 and the ambiguous
+HM1022 entry remain unsupported pending protocol/model confirmation.
+
+```bash
+cd oscilloscope-dashboard
+python -m venv .venv
+# Activate .venv, then:
+pip install -r requirements.txt
+python run.py --sim
+```
+
+## Spectrometer documentation
 
 | Guide | For |
 |---|---|
@@ -73,6 +91,7 @@ The [lab setup guide](docs/lab-setup.md) walks through every step.
 
 ```
 spectro-dashboard/            the dashboard: FastAPI service, web page, simulator, tests, .exe build
+oscilloscope-dashboard/       oscilloscope service, PyVISA drivers, simulator, web page and tests
 windows/ocean-optics-setup/   PowerShell scripts: USB driver, power settings, device check
 docs/                         documentation
 ```

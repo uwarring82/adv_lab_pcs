@@ -48,10 +48,87 @@ jobs:
         # `|| exit 1`, not `&&`: bash -e ignores failures before an &&, so a later
         # good file would otherwise hide an earlier broken one.
         run: |
-          for f in spectro-dashboard/web/*.js; do
+          for f in spectro-dashboard/web/*.js oscilloscope-dashboard/web/*.js; do
             node --check "$f" || exit 1
             echo "OK  $f"
           done
+
+  oscilloscope-tests:
+    name: oscilloscope tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.10" }
+          - { os: ubuntu-latest, python: "3.13" }
+          - { os: windows-latest, python: "3.12" }
+    defaults:
+      run:
+        working-directory: oscilloscope-dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: oscilloscope-dashboard/requirements*.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  oscilloscope-windows-exe:
+    needs: [oscilloscope-tests, powershell, frontend]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build OscilloscopeDashboard.exe
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File oscilloscope-dashboard\packaging\build_exe.ps1
+      - name: Smoke-test simulator and bundled VISA backend
+        shell: powershell
+        run: |
+          $exe = 'oscilloscope-dashboard\dist\OscilloscopeDashboard.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--sim', '--no-browser', '--visa-library', '@py' -PassThru
+          try {
+            $status = $null
+            for ($i = 0; $i -lt 60 -and -not $status; $i++) {
+              Start-Sleep -Seconds 1
+              try { $status = Invoke-RestMethod http://127.0.0.1:8778/api/status } catch { }
+            }
+            if (-not $status -or -not $status.info.simulated) { throw 'Simulator did not start.' }
+            $page = Invoke-WebRequest http://127.0.0.1:8778/ -UseBasicParsing
+            if ($page.Content -notmatch 'Oscilloscope Dashboard') { throw 'Dashboard page not served.' }
+            foreach ($asset in 'app.js', 'style.css', 'lib/uPlot.iife.min.js', 'lib/uPlot.min.css') {
+              Invoke-WebRequest "http://127.0.0.1:8778/$asset" -UseBasicParsing | Out-Null
+            }
+            $capture = Invoke-RestMethod http://127.0.0.1:8778/api/capture -Method Post -ContentType 'application/json' -Body '{"channel": 1}'
+            if ($capture.points -ne 1200 -or $capture.time_s.Count -ne $capture.voltage_v.Count) { throw 'Invalid waveform.' }
+            $csv = Invoke-WebRequest "http://127.0.0.1:8778/api/capture/$($capture.id)/csv" -UseBasicParsing
+            if ($csv.Content -notmatch 'CH1_voltage_v') { throw 'CSV export failed.' }
+            # Loads PyVISA-py inside the frozen executable; no hardware is probed.
+            Invoke-RestMethod http://127.0.0.1:8778/api/resources | Out-Null
+            Invoke-RestMethod http://127.0.0.1:8778/api/disconnect -Method Post | Out-Null
+            $status = Invoke-RestMethod http://127.0.0.1:8778/api/status
+            if ($status.connected) { throw 'Disconnect failed.' }
+            Write-Host 'OK: simulator, web assets, capture, CSV and bundled VISA backend.'
+          }
+          finally {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oscilloscope-windows-exe
+          path: |
+            oscilloscope-dashboard/dist/OscilloscopeDashboard.exe
+            oscilloscope-dashboard/dist/LICENSE.txt
+            oscilloscope-dashboard/dist/THIRD_PARTY_NOTICES.md
+            oscilloscope-dashboard/dist/THIRD_PARTY_LICENSES.txt
+            oscilloscope-dashboard/dist/README-TEST-DE.txt
+            oscilloscope-dashboard/dist/Start-Rigol.cmd
+            oscilloscope-dashboard/dist/Simulator.cmd
+          if-no-files-found: error
 
   powershell:
     runs-on: windows-latest

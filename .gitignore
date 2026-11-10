@@ -9,6 +9,8 @@ venv/
 # PyInstaller build output
 spectro-dashboard/build/
 spectro-dashboard/dist/
+oscilloscope-dashboard/build/
+oscilloscope-dashboard/dist/
 *.spec
 
 # Proprietary vendor installers (not redistributable) — keep the README only

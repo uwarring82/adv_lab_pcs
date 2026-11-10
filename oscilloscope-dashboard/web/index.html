@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oscilloscope Dashboard</title>
+  <link rel="stylesheet" href="/lib/uPlot.min.css"><link rel="stylesheet" href="/style.css">
+  <script src="/lib/uPlot.iife.min.js" defer></script><script src="/app.js" defer></script>
+</head>
+<body>
+<header><div><h1>Oscilloscope Dashboard</h1><span class="hint">Advanced physics lab · Freiburg</span></div><span id="badge">Disconnected</span></header>
+<main>
+  <section class="card">
+    <h2>Connection</h2>
+    <div class="toolbar">
+      <label class="resource">USB / serial VISA resource<input id="resource" list="resources" placeholder="USB0::…::INSTR or ASRL3::INSTR"><datalist id="resources"></datalist></label>
+      <button id="discover">Find resources</button><button id="connect" class="primary">Connect</button>
+      <button id="disconnect" disabled>Disconnect</button><button id="simulate">Use simulator</button>
+    </div>
+    <details><summary>Serial connection settings (HAMEG)</summary>
+      <div class="toolbar serial">
+        <label>Baud rate<select id="baud"><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option selected>115200</option></select></label>
+        <label>Flow control<select id="flow"><option value="none">None</option><option value="rts_cts">RTS / CTS</option><option value="xon_xoff">XON / XOFF</option></select></label>
+        <label>Line ending<select id="termination"><option>LF</option><option>CRLF</option><option>CR</option></select></label>
+        <label>Timeout (s)<input id="timeout" type="number" min="0.1" max="30" step="0.1" value="5"></label>
+      </div>
+      <p class="hint">8 data bits, no parity, 1 stop bit. Match the baud rate and flow control to the instrument menu. These defaults have not been verified on the lab PCs.</p>
+    </details>
+    <p id="device" class="hint">Select a resource to identify the instrument, or try synthetic data.</p>
+  </section>
+  <div id="notice" role="status" aria-live="polite">Ready.</div>
+  <div class="workspace">
+    <section class="card controls">
+      <h2>Instrument controls</h2>
+      <fieldset id="controls" disabled>
+        <label>Channel<select id="channel"><option value="1">CH1</option><option value="2">CH2</option><option value="3">CH3</option><option value="4">CH4</option></select></label>
+        <p id="acquisition" class="hint">Acquisition state: —</p>
+        <div class="button-grid"><button data-action="run">Run</button><button data-action="stop">Stop</button><button data-action="single">Arm single</button><button data-action="autoscale">Auto setup</button></div>
+        <p class="hint">Run / Stop controls the instrument. Arm single waits for its trigger. Auto setup changes timebase, channel and trigger settings.</p>
+        <form id="settings">
+          <label>Timebase (s/div)<input id="timebase" type="number" min="0.000000005" max="50" step="any" required></label>
+          <label>Vertical scale (V/div)<input id="scale" type="number" min="0.001" max="10" step="any" required></label>
+          <label>Coupling<select id="coupling"><option>DC</option><option>AC</option><option>GND</option></select></label>
+          <div class="button-grid"><button type="submit" class="primary">Apply changes</button><button type="button" id="refresh">Read settings</button></div>
+        </form>
+        <p class="hint">Use the front panel for probe attenuation, channel enable and trigger configuration. Reported voltages use the instrument’s probe setting.</p>
+      </fieldset>
+    </section>
+    <section class="card waveform">
+      <div class="figbar"><h2>Waveform preview</h2><span id="preview-state" class="hint">No capture</span></div>
+      <div class="toolbar"><button id="capture" class="primary" disabled>Capture screen</button><button id="live" disabled>Start live preview</button><button id="export" disabled>Export displayed CSV</button><button id="reset">Reset zoom</button></div>
+      <p class="hint">One channel per capture. Screen samples only; previews may update during an acquisition. Stop the instrument after a completed trigger to inspect a stable trace.</p>
+      <div id="plot" aria-label="Voltage versus time waveform"></div>
+      <div id="empty">Connect an oscilloscope or start the simulator to view a waveform.</div>
+      <div class="metrics"><div>Peak to peak<strong id="vpp">—</strong></div><div>RMS<strong id="rms">—</strong></div><div>Mean<strong id="mean">—</strong></div><div>Samples<strong id="points">—</strong></div></div>
+      <p class="hint" id="capture-info">Drag across the plot to zoom. CSV exports the exact displayed capture in seconds and volts.</p>
+    </section>
+  </div>
+  <section class="card bottom">
+    <div><h2>Model coverage</h2><p>Drivers prepared for RIGOL DS1054Z, DS1074Z, DS1104Z and DS1202Z-E (USB), plus HAMEG HMO1022 and HMO3524 (RS-232). Hardware validation is pending.</p><p class="hint">HM1508 / HM1508-2 need a separate verified protocol. The inventory entry “HM1022” needs model confirmation. The supplied workbook has no yellow markings, so per-device test status is unknown.</p></div>
+    <div><h2>Student API</h2><p><a href="/docs" target="_blank" rel="noopener">Open API documentation</a></p><pre>POST /api/capture
+{"channel": 1}
+
+GET /api/capture/{id}/csv</pre><p class="hint">The dashboard and student scripts share one instrument connection.</p></div>
+  </section>
+</main>
+</body></html>
