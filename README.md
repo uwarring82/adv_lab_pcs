@@ -67,7 +67,7 @@ architecture. It includes a simulator, PyVISA USB/serial connection selection,
 run/stop/single/auto setup, timebase and channel settings, waveform previews and CSV
 export. Drivers are prepared for the inventory's RIGOL DS1000Z/Z-E and HAMEG HMO
 models. Initial DS1054Z lab feedback confirms USB connection, capture and controls;
-rc2 fixes plot refresh and CSV formatting, with hardware retesting pending.
+rc2 fixes plot refresh and CSV formatting; rc3 adds a resource drop-down, readable cursor units and HMO3524 diagnostics, with hardware retesting pending.
 Other models await validation. HM1508/HM1508-2 and the ambiguous
 HM1022 entry remain unsupported pending protocol/model confirmation.
 

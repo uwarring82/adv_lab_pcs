@@ -8,7 +8,8 @@ on **127.0.0.1:8778**, so both dashboards can run on the same PC.
 This is an initial implementation. On 2026-11-11 Maxim reported successful USB
 connection, initial capture, CSV export, acquisition controls and scale/timebase/
 coupling changes on a **DS1054Z**. He also found stalled plot updates and unnecessarily
-quoted CSV numbers in rc1. **rc2 fixes those two frontend issues; lab retesting is
+quoted CSV numbers in rc1. **rc2 fixes those two frontend issues (confirmed by the lab); rc3
+adds a resource drop-down, readable cursor units and HMO3524 diagnostics; retesting is
 pending.** Other models, including HAMEG HMO, have not yet been hardware-validated.
 
 ## Start

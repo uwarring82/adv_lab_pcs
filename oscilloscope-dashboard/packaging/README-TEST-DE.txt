@@ -1,4 +1,4 @@
-Oscilloscope Dashboard 0.1.0-rc2 - Windows-Test nach erster Rueckmeldung
+Oscilloscope Dashboard 0.1.0-rc3 - Windows-Test nach zweiter Rueckmeldung
 
 Voraussetzung: Windows 10/11, 64 Bit (x64).
 Python muss nicht installiert sein. Fuer ein echtes RIGOL werden weiterhin eine
@@ -24,7 +24,8 @@ RIGOL-MODELLE
 DS1054Z, DS1074Z, DS1104Z (auch Plus), DS1202Z-E.
 Maxim hat Verbindung, erste Aufnahme und Steuerfunktionen mit einem DS1054Z
 erfolgreich getestet. rc2 behebt die verzoegerte Plot-Aktualisierung bei weiteren
-Aufnahmen und exportiert Zahlen ohne Anfuehrungszeichen. Bitte erneut testen.
+Aufnahmen und exportiert Zahlen ohne Anfuehrungszeichen. rc3 zeigt gefundene
+Ressourcen in einer Auswahlliste und die Cursor-Zeit in passenden Einheiten (z. B. us, ns).
 
 HAMEG-TEST
 HMO1022 und HMO3524 koennen jetzt ebenfalls versuchsweise ueber RS-232 getestet
@@ -33,6 +34,9 @@ Im Browser unter Serial connection settings Baudrate, Handshake und Zeilenende
 passend zum Geraet einstellen (8-N-1), dann ASRL...::INSTR auswaehlen und verbinden.
 Die Vorgaben 115200 / kein Handshake / LF sind nicht fuer die Laborgeraete bestaetigt.
 Bitte Modell, Firmware, COM-Port und funktionierende Einstellungen zurueckmelden.
+Bekanntes Problem: Der HMO3524 verbindet, antwortet danach aber nicht rechtzeitig. rc3
+nennt in der Fehlermeldung den SCPI-Befehl, der keine Antwort bekam; bitte die
+vollstaendige Meldung, die Firmware und Schnittstelle/Baudrate/Handshake am Geraet melden.
 HM1508/HM1508-2 werden noch nicht unterstuetzt; bei HM1022 bitte zuerst den genauen
 Modellnamen am Typenschild pruefen. Nicht einfach als HMO1022 behandeln.
 

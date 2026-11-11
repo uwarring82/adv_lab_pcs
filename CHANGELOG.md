@@ -6,7 +6,7 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
-### Changed (oscilloscope, after rc2; not yet released)
+### Changed (oscilloscope 0.1.0-rc3)
 
 - Lab feedback on rc2 (2026-11-11): plot refresh confirmed; the HMO1022 works over its
   COM port; the HMO3524 connects and identifies but then times out.
