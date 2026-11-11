@@ -66,9 +66,12 @@ interface on port **8778**, following the spectrometer's FastAPI and offline web
 architecture. It includes a simulator, PyVISA USB/serial connection selection,
 run/stop/single/auto setup, timebase and channel settings, waveform previews and CSV
 export. Drivers are prepared for the inventory's RIGOL DS1000Z/Z-E and HAMEG HMO
-models. Initial DS1054Z lab feedback confirms USB connection, capture and controls;
-rc2 fixes plot refresh and CSV formatting; rc3 adds a resource drop-down, readable cursor units and HMO3524 diagnostics, with hardware retesting pending.
-Other models await validation. HM1508/HM1508-2 and the ambiguous
+models. Initial DS1054Z lab feedback confirms USB connection, capture and controls.
+Plot refresh is confirmed working with rc2, and one HMO1022 works over its COM port.
+rc3 adds a resource drop-down, readable cursor units and HMO3524 diagnostics;
+rc4 corrects the hardware-test status text. These additions await a lab retest.
+The HMO3524 timeout after identification remains unresolved. Other models await
+validation. HM1508/HM1508-2 and the ambiguous
 HM1022 entry remain unsupported pending protocol/model confirmation.
 
 ```bash

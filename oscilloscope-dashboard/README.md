@@ -8,9 +8,12 @@ on **127.0.0.1:8778**, so both dashboards can run on the same PC.
 This is an initial implementation. On 2026-11-11 a lab user reported successful USB
 connection, initial capture, CSV export, acquisition controls and scale/timebase/
 coupling changes on a **DS1054Z**. They also found stalled plot updates and unnecessarily
-quoted CSV numbers in rc1. **rc2 fixes those two frontend issues (confirmed by the lab); rc3
-adds a resource drop-down, readable cursor units and HMO3524 diagnostics; retesting is
-pending.** Other models, including HAMEG HMO, have not yet been hardware-validated.
+quoted CSV numbers in rc1. **Plot refresh is confirmed working with rc2; the HMO1022
+also works over its COM port.** rc3 adds a resource drop-down, readable cursor units
+and HMO3524 diagnostics; rc4 corrects the displayed hardware-test status. These new
+features await a lab retest. **The HMO3524 still has an unresolved timeout after
+identification; the diagnostic changes are not a confirmed fix.** Other models
+await hardware validation.
 
 ## Start
 
@@ -77,7 +80,7 @@ are retained rather than silently corrected.
 
 | Inventory model | Count | Dashboard driver | Validation |
 |---|---:|---|---|
-| RIGOL DS1054Z | 8 | RIGOL DS1000Z, USB | One device tested by a lab user on 2026-11-11; rc2 fixes await retest |
+| RIGOL DS1054Z | 8 | RIGOL DS1000Z, USB | Connection, capture and controls reported working; plot refresh confirmed with rc2 on 2026-11-11 |
 | RIGOL DS1074Z | 1 | RIGOL DS1000Z, USB | Pending hardware test |
 | RIGOL DS1104Z | 1 | RIGOL DS1000Z, USB | Pending hardware test |
 | RIGOL DS1202Z-E | 1 | RIGOL DS1000Z-E, USB, 2 channels | Pending hardware test |

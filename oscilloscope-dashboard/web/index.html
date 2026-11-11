@@ -57,7 +57,7 @@
     </section>
   </div>
   <section class="card bottom">
-    <div><h2>Model coverage</h2><p>DS1054Z: USB connection, captures and instrument controls reported working in the lab. This build fixes repeated plot updates and CSV formatting; hardware retest is pending. Other RIGOL models and HAMEG HMO1022 / HMO3524 (RS-232) await hardware testing.</p><p class="hint">HM1508 / HM1508-2 need a separate verified protocol. The inventory entry “HM1022” needs model confirmation. HAMEG serial settings must match the instrument menu.</p></div>
+    <div><h2>Model coverage</h2><p>DS1054Z: USB connection, captures and instrument controls reported working; plot refresh confirmed with rc2. HAMEG HMO1022 works over its COM port. HMO3524 identifies but then times out; the cause remains unresolved. This build adds command-specific diagnostics, a resource drop-down and readable cursor units; a lab retest is pending. Other RIGOL models await hardware testing.</p><p class="hint">HM1508 / HM1508-2 need a separate verified protocol. The inventory entry “HM1022” needs model confirmation. HAMEG serial settings must match the instrument menu.</p></div>
     <div><h2>Student API</h2><p><a href="/docs" target="_blank" rel="noopener">Open API documentation</a></p><pre>POST /api/capture
 {"channel": 1}
 

@@ -1,4 +1,4 @@
-Oscilloscope Dashboard 0.1.0-rc3 - Windows-Test nach zweiter Rueckmeldung
+Oscilloscope Dashboard 0.1.0-rc4 - Windows-Test nach zweiter Rueckmeldung
 
 Voraussetzung: Windows 10/11, 64 Bit (x64).
 Python muss nicht installiert sein. Fuer ein echtes RIGOL werden weiterhin eine
@@ -26,10 +26,13 @@ Ein Laborbenutzer hat Verbindung, erste Aufnahme und Steuerfunktionen mit einem 
 erfolgreich getestet. rc2 behebt die verzoegerte Plot-Aktualisierung bei weiteren
 Aufnahmen und exportiert Zahlen ohne Anfuehrungszeichen. rc3 zeigt gefundene
 Ressourcen in einer Auswahlliste und die Cursor-Zeit in passenden Einheiten (z. B. us, ns).
+Die Plot-Aktualisierung mit rc2 wurde im Labor bestaetigt. rc4 korrigiert die
+Hardware-Testhinweise; die Treiber entsprechen rc3.
 
 HAMEG-TEST
-HMO1022 und HMO3524 koennen jetzt ebenfalls versuchsweise ueber RS-232 getestet
-werden. Start-Rigol.cmd startet auch diese Treiber; die Auswahl erfolgt nach *IDN?.
+Ein HMO1022 funktioniert laut Laborrueckmeldung ueber seinen COM-Port.
+Beim HMO3524 ist der Timeout nach der Erkennung weiterhin ungeloest.
+Start-Rigol.cmd startet auch diese Treiber; die Auswahl erfolgt nach *IDN?.
 Im Browser unter Serial connection settings Baudrate, Handshake und Zeilenende
 passend zum Geraet einstellen (8-N-1), dann ASRL...::INSTR auswaehlen und verbinden.
 Die Vorgaben 115200 / kein Handshake / LF sind nicht fuer die Laborgeraete bestaetigt.

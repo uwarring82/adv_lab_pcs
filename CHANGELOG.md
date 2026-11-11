@@ -6,6 +6,12 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed (oscilloscope 0.1.0-rc4)
+
+- Correct the dashboard, README and Windows test notes to record confirmed rc2 plot
+  refresh and the HMO1022 COM-port report. HMO3524 still times out after identification;
+  rc3 diagnostics are not a confirmed hardware fix. Driver behavior is unchanged.
+
 ### Changed (oscilloscope 0.1.0-rc3)
 
 - Lab feedback on rc2 (2026-11-11): plot refresh confirmed; the HMO1022 works over its
