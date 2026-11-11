@@ -26,7 +26,7 @@ All notable changes are listed here. The format follows
   loaded but the canvas stayed stale until Reset zoom.
 - Browser CSV export leaves numeric samples unquoted and escapes text only where
   required. Added frontend regression checks, including real uPlot canvas tests.
-- Recorded Maxim's initial DS1054Z hardware feedback and added HMO1022/HMO3524 serial
+- Recorded a lab user's initial DS1054Z hardware feedback and added HMO1022/HMO3524 serial
   testing instructions. Clarified that live preview does not record every trigger.
 
 ### Added

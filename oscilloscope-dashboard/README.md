@@ -5,9 +5,9 @@ Ocean Optics dashboard: Python/FastAPI, plain offline HTML/JS, vendored uPlot, o
 instrument owner, simulator and Windows executable packaging. It runs separately
 on **127.0.0.1:8778**, so both dashboards can run on the same PC.
 
-This is an initial implementation. On 2026-11-11 Maxim reported successful USB
+This is an initial implementation. On 2026-11-11 a lab user reported successful USB
 connection, initial capture, CSV export, acquisition controls and scale/timebase/
-coupling changes on a **DS1054Z**. He also found stalled plot updates and unnecessarily
+coupling changes on a **DS1054Z**. They also found stalled plot updates and unnecessarily
 quoted CSV numbers in rc1. **rc2 fixes those two frontend issues (confirmed by the lab); rc3
 adds a resource drop-down, readable cursor units and HMO3524 diagnostics; retesting is
 pending.** Other models, including HAMEG HMO, have not yet been hardware-validated.
@@ -77,7 +77,7 @@ are retained rather than silently corrected.
 
 | Inventory model | Count | Dashboard driver | Validation |
 |---|---:|---|---|
-| RIGOL DS1054Z | 8 | RIGOL DS1000Z, USB | One device tested by Maxim on 2026-11-11; rc2 fixes await retest |
+| RIGOL DS1054Z | 8 | RIGOL DS1000Z, USB | One device tested by a lab user on 2026-11-11; rc2 fixes await retest |
 | RIGOL DS1074Z | 1 | RIGOL DS1000Z, USB | Pending hardware test |
 | RIGOL DS1104Z | 1 | RIGOL DS1000Z, USB | Pending hardware test |
 | RIGOL DS1202Z-E | 1 | RIGOL DS1000Z-E, USB, 2 channels | Pending hardware test |

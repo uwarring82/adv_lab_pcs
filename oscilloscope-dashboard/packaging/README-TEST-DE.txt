@@ -22,7 +22,7 @@ START
 
 RIGOL-MODELLE
 DS1054Z, DS1074Z, DS1104Z (auch Plus), DS1202Z-E.
-Maxim hat Verbindung, erste Aufnahme und Steuerfunktionen mit einem DS1054Z
+Ein Laborbenutzer hat Verbindung, erste Aufnahme und Steuerfunktionen mit einem DS1054Z
 erfolgreich getestet. rc2 behebt die verzoegerte Plot-Aktualisierung bei weiteren
 Aufnahmen und exportiert Zahlen ohne Anfuehrungszeichen. rc3 zeigt gefundene
 Ressourcen in einer Auswahlliste und die Cursor-Zeit in passenden Einheiten (z. B. us, ns).

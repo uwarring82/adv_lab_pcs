@@ -50,7 +50,7 @@ def test_wrong_driver_is_named():
 
 
 def test_driver_problem_status():
-    # Maxim's lab PC: Windows knows the name, but there is no driver (Code 28)
+    # A lab user's PC: Windows knows the name, but there is no driver (Code 28)
     text = joined(report([device(status="Error", service=None, driver_provider=None, inf=None)]))
     assert "status 'Error'" in text and "Install driver" in text
 
