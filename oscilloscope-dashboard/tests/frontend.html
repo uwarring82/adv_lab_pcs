@@ -1,0 +1,46 @@
+<!doctype html><html lang="en"><meta charset="utf-8">
+<title>Oscilloscope plot regression</title>
+<link rel="stylesheet" href="../web/lib/uPlot.min.css">
+<style>body {font:16px system-ui;margin:24px} .pass {color:#176b27} .fail {color:#a11}</style>
+<h1>Oscilloscope plot regression</h1><p id="result">Running real uPlot canvas checks…</p>
+<ul id="checks"></ul><div id="plot"></div>
+<script src="../web/lib/uPlot.iife.min.js"></script><script src="../web/waveform.js"></script>
+<script>
+(async () => {
+  const wait = () => new Promise(resolve => setTimeout(resolve, 150));
+  function check(ok, label) {
+    const li = document.createElement("li"); li.textContent = `${ok ? "PASS" : "FAIL"}: ${label}`;
+    li.className = ok ? "pass" : "fail"; document.getElementById("checks").append(li);
+    if (!ok) throw new Error(label);
+  }
+  try {
+    const x = Array.from({length: 201}, (_, i) => i / 100);
+    const a = [x, x.map(t => Math.sin(t * Math.PI * 2))];
+    const b = [x, x.map(t => 4 * Math.cos(t * Math.PI * 2))];
+    const plot = new uPlot({width: 800, height: 320, scales: {x: {time: false}},
+      series: [{}, {stroke: "#1f77b4"}]}, a, document.getElementById("plot"));
+    await wait();
+    const image = () => plot.ctx.canvas.toDataURL();
+    let before = image();
+    // Reproduce rc1's fault with the actual bundled library.
+    plot.setData(b, false); await wait();
+    check(image() === before, "rc1 reproduction: data changes without repaint");
+    ScopeWaveform.updatePlot(plot, b); await wait();
+    check(image() !== before, "second capture repaints without Reset zoom");
+    check(plot.scales.y.min <= -4 && plot.scales.y.max >= 4, "voltage axis fits new samples");
+    plot.setScale("x", {min: 0.5, max: 1.5}); await wait(); before = image();
+    ScopeWaveform.updatePlot(plot, a); await wait();
+    check(image() !== before, "live update repaints while zoomed");
+    check(plot.scales.x.min === 0.5 && plot.scales.x.max === 1.5, "user zoom survives update");
+    for (const data of [b, a, b]) {
+      before = image(); ScopeWaveform.updatePlot(plot, data); await wait();
+      check(image() !== before, "consecutive live frame changes canvas");
+    }
+    document.getElementById("result").textContent = "All 8 real-canvas regression checks passed.";
+    document.getElementById("result").className = "pass";
+  } catch (error) {
+    document.getElementById("result").textContent = `FAILED: ${error.message}`;
+    document.getElementById("result").className = "fail";
+  }
+})();
+</script></html>

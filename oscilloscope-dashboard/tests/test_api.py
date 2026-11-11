@@ -20,7 +20,7 @@ def client():
 
 def test_static_and_status(client):
     assert client.get("/api/status").json()["info"]["simulated"]
-    for path in ("/", "/app.js", "/style.css", "/lib/uPlot.iife.min.js", "/docs", "/openapi.json"):
+    for path in ("/", "/app.js", "/waveform.js", "/style.css", "/lib/uPlot.iife.min.js", "/docs", "/openapi.json"):
         assert client.get(path).status_code == 200
 
 

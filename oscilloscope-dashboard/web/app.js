@@ -40,7 +40,7 @@ function clearCapture() {
 async function status() {
   const data = await api("status");
   connected = data.connected;
-  $("badge").textContent = connected ? (data.info.simulated ? "SIMULATED DATA" : "HARDWARE · validation pending") : "Disconnected";
+  $("badge").textContent = connected ? (data.info.simulated ? "SIMULATED DATA" : "HARDWARE") : "Disconnected";
   $("badge").className = connected ? (data.info.simulated ? "sim" : "hardware") : "";
   $("device").textContent = connected ? `${data.info.vendor} ${data.info.model} · ${data.info.serial} · ${data.info.resource || "Synthetic 1 kHz signal"}` : (data.error || "Select a resource to identify the instrument, or try synthetic data.");
   if (connected) {
@@ -87,7 +87,7 @@ function draw(data) {
       cursor: {drag: {x: true, y: false}}, legend: {show: true}
     }, [data.time_s, data.voltage_v], $("plot"));
   } else {
-    plot.setData([data.time_s, data.voltage_v], false);
+    ScopeWaveform.updatePlot(plot, [data.time_s, data.voltage_v]);
   }
   $("vpp").textContent = format(data.peak_to_peak_v, "V");
   $("rms").textContent = format(data.rms_v, "V");
@@ -101,7 +101,7 @@ async function capture() { draw(await api("capture", {channel: Number($("channel
 async function tick() {
   if (!live || busy) return;
   busy = true; controls();
-  try { await capture(); notice("Live preview. Pause to change controls; the instrument keeps its acquisition state."); }
+  try { await capture(); notice("Live screen snapshots; acquisitions between reads are not recorded. Pause to change controls."); }
   catch (error) { pause(); notice(error.message, true); try { await status(); } catch (_) { connected = false; } }
   finally { busy = false; controls(); if (live) timer = setTimeout(tick, 750); }
 }
@@ -119,7 +119,7 @@ async function connect(simulated) {
     timeout_ms: Math.round(Number($("timeout").value) * 1000)
   });
   await status(); await readSettings();
-  notice(simulated ? "Simulator connected. All waveforms are synthetic." : "Connected. Hardware validation is pending; compare the first capture with the instrument display.");
+  notice(simulated ? "Simulator connected. All waveforms are synthetic." : "Connected. Compare the first capture with the instrument display; see model coverage below.");
 }
 $("connect").onclick = () => task(() => connect(false));
 $("simulate").onclick = () => task(() => connect(true));
@@ -151,11 +151,7 @@ $("export").onclick = () => {
   if (!last) return;
   // Save the browser's displayed snapshot even if another client has acquired again.
   const d = last;
-  const quote = v => `"${String(v).replaceAll('"', '""')}"`;
-  const lines = [["# capture_id", d.id], ["# captured_at", d.captured_at], ["# model", d.info.model],
-    ["# serial", d.info.serial], ["# simulated", d.info.simulated], ["# mode", d.mode],
-    ["time_s", `CH${d.channel}_voltage_v`], ...d.time_s.map((t, i) => [t, d.voltage_v[i]])];
-  const blob = new Blob([lines.map(row => row.map(quote).join(",")).join("\r\n") + "\r\n"], {type: "text/csv"});
+  const blob = new Blob([ScopeWaveform.toCSV(d)], {type: "text/csv"});
   const url = URL.createObjectURL(blob), link = document.createElement("a");
   link.href = url; link.download = `oscilloscope-${d.info.simulated ? "sim-" : ""}${d.id}.csv`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);

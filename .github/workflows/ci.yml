@@ -53,6 +53,9 @@ jobs:
             echo "OK  $f"
           done
 
+      - name: Oscilloscope frontend regression tests
+        run: node --test oscilloscope-dashboard/tests/test_frontend.cjs
+
   oscilloscope-tests:
     name: oscilloscope tests (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
@@ -100,7 +103,7 @@ jobs:
             if (-not $status -or -not $status.info.simulated) { throw 'Simulator did not start.' }
             $page = Invoke-WebRequest http://127.0.0.1:8778/ -UseBasicParsing
             if ($page.Content -notmatch 'Oscilloscope Dashboard') { throw 'Dashboard page not served.' }
-            foreach ($asset in 'app.js', 'style.css', 'lib/uPlot.iife.min.js', 'lib/uPlot.min.css') {
+            foreach ($asset in 'app.js', 'waveform.js', 'style.css', 'lib/uPlot.iife.min.js', 'lib/uPlot.min.css') {
               Invoke-WebRequest "http://127.0.0.1:8778/$asset" -UseBasicParsing | Out-Null
             }
             $capture = Invoke-RestMethod http://127.0.0.1:8778/api/capture -Method Post -ContentType 'application/json' -Body '{"channel": 1}'

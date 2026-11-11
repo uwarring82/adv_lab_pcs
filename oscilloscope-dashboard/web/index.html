@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Oscilloscope Dashboard</title>
   <link rel="stylesheet" href="/lib/uPlot.min.css"><link rel="stylesheet" href="/style.css">
-  <script src="/lib/uPlot.iife.min.js" defer></script><script src="/app.js" defer></script>
+  <script src="/lib/uPlot.iife.min.js" defer></script><script src="/waveform.js" defer></script><script src="/app.js" defer></script>
 </head>
 <body>
 <header><div><h1>Oscilloscope Dashboard</h1><span class="hint">Advanced physics lab · Freiburg</span></div><span id="badge">Disconnected</span></header>
@@ -48,7 +48,7 @@
     <section class="card waveform">
       <div class="figbar"><h2>Waveform preview</h2><span id="preview-state" class="hint">No capture</span></div>
       <div class="toolbar"><button id="capture" class="primary" disabled>Capture screen</button><button id="live" disabled>Start live preview</button><button id="export" disabled>Export displayed CSV</button><button id="reset">Reset zoom</button></div>
-      <p class="hint">One channel per capture. Screen samples only; previews may update during an acquisition. Stop the instrument after a completed trigger to inspect a stable trace.</p>
+      <p class="hint">One channel per capture. Live preview polls screen snapshots; it does not record every trigger. Acquisitions between reads may be missed. For an isolated event, use Arm single, wait for the trigger to complete, then Capture screen.</p>
       <div id="plot" aria-label="Voltage versus time waveform"></div>
       <div id="empty">Connect an oscilloscope or start the simulator to view a waveform.</div>
       <div class="metrics"><div>Peak to peak<strong id="vpp">—</strong></div><div>RMS<strong id="rms">—</strong></div><div>Mean<strong id="mean">—</strong></div><div>Samples<strong id="points">—</strong></div></div>
@@ -56,7 +56,7 @@
     </section>
   </div>
   <section class="card bottom">
-    <div><h2>Model coverage</h2><p>Drivers prepared for RIGOL DS1054Z, DS1074Z, DS1104Z and DS1202Z-E (USB), plus HAMEG HMO1022 and HMO3524 (RS-232). Hardware validation is pending.</p><p class="hint">HM1508 / HM1508-2 need a separate verified protocol. The inventory entry “HM1022” needs model confirmation. The supplied workbook has no yellow markings, so per-device test status is unknown.</p></div>
+    <div><h2>Model coverage</h2><p>DS1054Z: USB connection, captures and instrument controls reported working in the lab. This build fixes repeated plot updates and CSV formatting; hardware retest is pending. Other RIGOL models and HAMEG HMO1022 / HMO3524 (RS-232) await hardware testing.</p><p class="hint">HM1508 / HM1508-2 need a separate verified protocol. The inventory entry “HM1022” needs model confirmation. HAMEG serial settings must match the instrument menu.</p></div>
     <div><h2>Student API</h2><p><a href="/docs" target="_blank" rel="noopener">Open API documentation</a></p><pre>POST /api/capture
 {"channel": 1}
 

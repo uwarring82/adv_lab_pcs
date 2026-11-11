@@ -5,10 +5,11 @@ Ocean Optics dashboard: Python/FastAPI, plain offline HTML/JS, vendored uPlot, o
 instrument owner, simulator and Windows executable packaging. It runs separately
 on **127.0.0.1:8778**, so both dashboards can run on the same PC.
 
-This is an initial implementation. Simulator and protocol tests run without hardware;
-**no physical oscilloscope has been validated with this dashboard yet**. Maxim's
-successful PyVISA communication tests are useful transport evidence, but do not
-establish that these control and waveform commands work on each instrument.
+This is an initial implementation. On 2026-11-11 Maxim reported successful USB
+connection, initial capture, CSV export, acquisition controls and scale/timebase/
+coupling changes on a **DS1054Z**. He also found stalled plot updates and unnecessarily
+quoted CSV numbers in rc1. **rc2 fixes those two frontend issues; lab retesting is
+pending.** Other models, including HAMEG HMO, have not yet been hardware-validated.
 
 ## Start
 
@@ -69,13 +70,13 @@ displayed snapshot, with its original timestamp and instrument metadata.
 
 Source: `FP-Osz_Zustand.xlsx`, sheet `Tabelle1`, rows 2–24, read on 2026-11-10.
 The supplied local copy has **no yellow fills or conditional formatting**, so the
-tested subset cannot be recovered. No row is labelled as successfully tested here.
+tested subset cannot be recovered. The later DS1054Z report is recorded separately.
 The workbook is not modified or required at runtime. Original ambiguous model names
 are retained rather than silently corrected.
 
 | Inventory model | Count | Dashboard driver | Validation |
 |---|---:|---|---|
-| RIGOL DS1054Z | 8 | RIGOL DS1000Z, USB | Pending hardware test |
+| RIGOL DS1054Z | 8 | RIGOL DS1000Z, USB | One device tested by Maxim on 2026-11-11; rc2 fixes await retest |
 | RIGOL DS1074Z | 1 | RIGOL DS1000Z, USB | Pending hardware test |
 | RIGOL DS1104Z | 1 | RIGOL DS1000Z, USB | Pending hardware test |
 | RIGOL DS1202Z-E | 1 | RIGOL DS1000Z-E, USB, 2 channels | Pending hardware test |
@@ -109,12 +110,18 @@ its manufacturer matches: confirm its command dialect, transfer format and scali
 - **Live preview** polls after each completed transfer, with a 750 ms delay. Pause
   stops browser polling; it does not stop the scope. Controls are available after
   the current transfer completes. One device lock rejects competing requests (409).
+  This is not a triggered-acquisition recorder: events occurring between polls are
+  not saved. Shortening the polling delay would not guarantee lossless recording.
+  For an isolated event, arm a single acquisition, wait for completion, then capture
+  its stopped screen. Recording every trigger needs a separate acquisition mode
+  with model-specific buffering, transfer-rate limits and overrun detection.
 - The plot shows volts versus seconds with engineering prefixes, drag-to-zoom and
   reset. Mean, RMS (including DC) and peak-to-peak are calculated from the displayed
   samples, over the entire capture even when zoomed.
 - **Export displayed CSV** exports exactly the browser's displayed samples, including
   timestamp, model, serial and simulation flag. It never reacquires. The API exports
   its latest cached capture by ID and returns 409 if another capture has replaced it.
+  Numeric fields are unquoted; text is quoted only when CSV escaping requires it.
 
 The UI works offline. Interactive `/docs` currently uses FastAPI's external Swagger
 assets; offline scripts can use `/openapi.json` and the examples below.
@@ -168,7 +175,13 @@ with urlopen(base + f"/api/capture/{data['id']}/csv") as response:
 pip install -r requirements-dev.txt
 python -m pytest -q
 node --check web/app.js
+node --test tests/test_frontend.cjs
 ```
+
+For real-canvas regression checks, serve this directory locally with
+`python -m http.server 8779 --bind 127.0.0.1`, then open
+`http://127.0.0.1:8779/tests/frontend.html`. It reproduces the rc1 stale-canvas bug
+using the bundled uPlot, then checks repainting, y-axis updates and preserved zoom.
 
 `scope/backends.py` implements model identification, PyVISA setup, bounded binary
 transfers and the simulator. `manager.py` owns session lifetime, the device lock

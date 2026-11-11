@@ -6,6 +6,16 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed (oscilloscope 0.1.0-rc2)
+
+- Repeated captures and live preview now redraw the waveform immediately, retaining
+  a user-selected zoom and updating the voltage range. Previously, new samples were
+  loaded but the canvas stayed stale until Reset zoom.
+- Browser CSV export leaves numeric samples unquoted and escapes text only where
+  required. Added frontend regression checks, including real uPlot canvas tests.
+- Recorded Maxim's initial DS1054Z hardware feedback and added HMO1022/HMO3524 serial
+  testing instructions. Clarified that live preview does not record every trigger.
+
 ### Added
 
 - Separate local oscilloscope dashboard on port 8778: explicit simulator, PyVISA
