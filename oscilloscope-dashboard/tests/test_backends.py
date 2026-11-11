@@ -182,3 +182,46 @@ def test_invalid_resource_rejected_before_open(resource):
 def test_bad_numeric_metadata(value):
     with pytest.raises(DeviceError):
         numbers(value, 1)
+
+
+class TimeoutInstrument(Instrument):
+    """Raises a VISA-like timeout for chosen commands; records clear()."""
+    def __init__(self, silent=(), **kw):
+        super().__init__(**kw)
+        self.silent, self.cleared = set(silent), False
+
+    def query(self, command):
+        if command in self.silent:
+            self.writes.append(command)
+            raise TimeoutError("VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.")
+        return super().query(command)
+
+    def clear(self):
+        self.cleared = True
+
+
+HMO_REPLIES = {":TIM:SCAL?": "0.001", ":CHAN1:SCAL?": "0.5", ":CHAN1:COUP?": "DCL", ":CHAN1:STAT?": "1",
+               ":ACQ:STAT?": "RUN"}
+
+
+def test_unanswered_status_query_reports_unknown_state_and_clears_input():
+    inst = TimeoutInstrument(silent={":ACQ:STAT?"}, replies=HMO_REPLIES)
+    settings = VisaScope(inst, identify("HAMEG,HMO3524,123,1")).settings(1)
+    assert settings["acquisition_state"] == "UNKNOWN"
+    assert settings["scale_v"] == 0.5 and inst.cleared
+
+
+def test_unanswered_essential_query_names_the_command():
+    inst = TimeoutInstrument(silent={":CHAN1:COUP?"}, replies=HMO_REPLIES)
+    with pytest.raises(DeviceError, match=r":CHAN1:COUP\? .*HMO3524.*VI_ERROR_TMO"):
+        VisaScope(inst, identify("HAMEG,HMO3524,123,1")).settings(1)
+
+
+def test_block_timeout_names_the_command_and_restores_termination():
+    class Slow(Instrument):
+        def read_bytes(self, count):
+            raise TimeoutError("VI_ERROR_TMO")
+    inst = Slow()
+    with pytest.raises(DeviceError, match=r":CHAN1:DATA\?"):
+        VisaScope(inst, identify("HAMEG,HMO3524,123,1")).block(":CHAN1:DATA?", 4)
+    assert inst.read_termination == "\n"

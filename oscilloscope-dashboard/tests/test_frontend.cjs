@@ -1,6 +1,6 @@
 const {test} = require("node:test");
 const assert = require("node:assert/strict");
-const {toCSV, updatePlot} = require("../web/waveform.js");
+const {toCSV, updatePlot, format} = require("../web/waveform.js");
 
 const capture = {id: 75, captured_at: "2026-11-11T08:21:07.925263+00:00",
   info: {model: "DS1054Z", serial: "DS1ZA211102531", simulated: false},
@@ -51,4 +51,13 @@ test("a zoom outside the new acquisition resets to show the available data", () 
   const plot = plotWithRange(1, 2);
   updatePlot(plot, [[10, 11, 12, 13], [0, 1, 0, -1]]);
   assert.deepEqual(plot.scales.x, {min: 10, max: 13});
+});
+
+test("time and voltage use engineering units, so microsecond cursors never read 0 s", () => {
+  assert.equal(format(-0.00006, "s"), "-60 µs");
+  assert.equal(format(2.5e-9, "s"), "2.5 ns");
+  assert.equal(format(0.0012, "s"), "1.2 ms");
+  assert.equal(format(0, "s"), "0 s");
+  assert.equal(format(4.4, "V"), "4.4 V");
+  assert.equal(format(3e-11, "s"), "3.00e-11 s");
 });

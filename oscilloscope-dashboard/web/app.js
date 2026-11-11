@@ -66,13 +66,8 @@ async function task(fn) {
     try { await status(); } catch (_) { connected = false; }
   } finally { busy = false; controls(); }
 }
-function format(value, unit) {
-  if (value === 0) return `0 ${unit}`;
-  for (const [scale, prefix] of [[1e3,"k"],[1,""],[1e-3,"m"],[1e-6,"µ"],[1e-9,"n"]]) {
-    if (Math.abs(value) >= scale) return `${Number((value / scale).toPrecision(4))} ${prefix}${unit}`;
-  }
-  return `${value.toExponential(2)} ${unit}`;
-}
+const format = ScopeWaveform.format;
+const cursorValue = unit => (u, v) => v == null ? "—" : format(v, unit);
 function draw(data) {
   const changedChannel = !last || last.channel !== data.channel;
   last = data;
@@ -83,7 +78,8 @@ function draw(data) {
       scales: {x: {time: false}},
       axes: [{label: "Time", values: (u, ticks) => ticks.map(t => format(t, "s"))},
              {label: "Voltage", size: 75, values: (u, ticks) => ticks.map(v => format(v, "V"))}],
-      series: [{label: "Time (s)"}, {label: `CH${data.channel} (V)`, stroke: colors[data.channel - 1], width: 1.5}],
+      series: [{label: "Time", value: cursorValue("s")},
+               {label: `CH${data.channel}`, value: cursorValue("V"), stroke: colors[data.channel - 1], width: 1.5}],
       cursor: {drag: {x: true, y: false}}, legend: {show: true}
     }, [data.time_s, data.voltage_v], $("plot"));
   } else {
@@ -107,8 +103,9 @@ async function tick() {
 }
 $("discover").onclick = () => task(async () => {
   const data = await api("resources");
-  $("resources").replaceChildren(...data.resources.map(r => { const o = document.createElement("option"); o.value = r; return o; }));
-  if (!$("resource").value && data.resources.length) $("resource").value = data.resources[0];
+  $("resources").replaceChildren(...data.resources.map(r => { const o = document.createElement("option"); o.value = o.textContent = r; return o; }));
+  $("found").hidden = !data.resources.length;
+  if (data.resources.length && !data.resources.includes($("resource").value)) $("resource").value = data.resources[0];
   notice(data.resources.length ? `Found ${data.resources.length} resources. Select the scope, then connect.` : "No USB or serial resources found. Check VISA drivers and cables, or enter the resource manually.");
 });
 async function connect(simulated) {
@@ -121,6 +118,7 @@ async function connect(simulated) {
   await status(); await readSettings();
   notice(simulated ? "Simulator connected. All waveforms are synthetic." : "Connected. Compare the first capture with the instrument display; see model coverage below.");
 }
+$("resources").onchange = () => { $("resource").value = $("resources").value; };
 $("connect").onclick = () => task(() => connect(false));
 $("simulate").onclick = () => task(() => connect(true));
 $("disconnect").onclick = () => task(async () => { await api("disconnect", {}); clearCapture(); await status(); notice("Disconnected."); });

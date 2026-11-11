@@ -124,20 +124,41 @@ class VisaScope:
     def rigol(self):
         return self.info["family"] == "rigol"
 
+    def ask(self, command):
+        """Query with the failing command named in the error (a bare VISA timeout does not say which)."""
+        try:
+            return self.instrument.query(command)
+        except (ScopeError, KeyboardInterrupt):
+            raise
+        except Exception as exc:
+            raise DeviceError(f"No usable reply to {command} from {self.info.get('model', 'instrument')} ({exc}). "
+                              "Report this command; check the serial settings and the instrument's remote setting.") from exc
+
+    def ask_optional(self, command, default="UNKNOWN"):
+        """Status-only query: if the model does not answer it, report UNKNOWN instead of failing the connection."""
+        try:
+            return self.instrument.query(command).strip() or default
+        except (ScopeError, KeyboardInterrupt):
+            raise
+        except Exception:
+            with suppress(Exception):
+                self.instrument.clear()  # drop a late or partial reply before the next command
+            return default
+
     def number(self, command):
-        return numbers(self.instrument.query(command), 1)[0]
+        return numbers(self.ask(command), 1)[0]
 
     def settings(self, channel):
         p = f":CHAN{channel}"
         return {"channel": channel,
                 "timebase_s": self.number(":TIM:MAIN:SCAL?" if self.rigol else ":TIM:SCAL?"),
                 "scale_v": self.number(p + ":SCAL?"),
-                "coupling": self.instrument.query(p + ":COUP?").strip(),
-                "enabled": self.instrument.query(p + (":DISP?" if self.rigol else ":STAT?")).strip() in ("1", "ON"),
-                "acquisition_state": self.instrument.query(":TRIG:STAT?" if self.rigol else ":ACQ:STAT?").strip()}
+                "coupling": self.ask(p + ":COUP?").strip(),
+                "enabled": self.ask(p + (":DISP?" if self.rigol else ":STAT?")).strip() in ("1", "ON"),
+                "acquisition_state": self.ask_optional(":TRIG:STAT?" if self.rigol else ":ACQ:STAT?")}
 
     def check_error(self):
-        reply = self.instrument.query(":SYST:ERR?").strip()
+        reply = self.ask(":SYST:ERR?").strip()
         try:
             code = int(reply.split(",")[0])
         except ValueError as exc:
@@ -189,19 +210,24 @@ class VisaScope:
             if end != b"\n":
                 raise DeviceError("Missing waveform block terminator.")
             return data
+        except ScopeError:
+            raise
+        except Exception as exc:
+            raise DeviceError(f"No usable data block in reply to {command} from {self.info.get('model', 'instrument')} ({exc}). "
+                              "Report this command; check the serial settings and the instrument's remote setting.") from exc
         finally:
             inst.read_termination = termination
 
     def capture(self, channel):
         i = self.instrument
-        enabled = i.query(f":CHAN{channel}" + (":DISP?" if self.rigol else ":STAT?")).strip()
+        enabled = self.ask(f":CHAN{channel}" + (":DISP?" if self.rigol else ":STAT?")).strip()
         if enabled not in ("1", "ON"):
             raise ScopeError(f"CH{channel} is disabled. Enable it on the oscilloscope front panel first.")
         self.check_error()
         if self.rigol:
             for cmd in (f":WAV:SOUR CHAN{channel}", ":WAV:MODE NORM", ":WAV:FORM BYTE", ":WAV:STAR 1", ":WAV:STOP 1200"):
                 i.write(cmd)
-            fmt, mode, n, count, dx, x0, xr, dy, y0, yr = numbers(i.query(":WAV:PRE?"), 10)
+            fmt, mode, n, count, dx, x0, xr, dy, y0, yr = numbers(self.ask(":WAV:PRE?"), 10)
             if fmt != 0 or mode != 0 or n != int(n) or not 2 <= n <= 1200 or dx <= 0 or dy <= 0:
                 raise DeviceError("Unsupported RIGOL screen waveform preamble.")
             raw = np.frombuffer(self.block(":WAV:DATA?", int(n)), dtype=np.uint8).astype(float)
@@ -209,7 +235,7 @@ class VisaScope:
         else:
             for cmd in (f":CHAN{channel}:DATA:POIN DEF", ":FORM REAL,32", ":FORM:BORD LSBF"):
                 i.write(cmd)
-            start, stop, n, values_per_sample = numbers(i.query(f":CHAN{channel}:DATA:HEAD?"), 4)
+            start, stop, n, values_per_sample = numbers(self.ask(f":CHAN{channel}:DATA:HEAD?"), 4)
             if n != int(n) or not 2 <= n <= MAX_POINTS or stop <= start:
                 raise DeviceError("Invalid HMO screen waveform header.")
             if values_per_sample != 1:

@@ -6,6 +6,19 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed (oscilloscope, after rc2; not yet released)
+
+- Lab feedback on rc2 (2026-11-11): plot refresh confirmed; the HMO1022 works over its
+  COM port; the HMO3524 connects and identifies but then times out.
+- Connection: found VISA resources now appear in a drop-down list that fills the
+  resource field (the free-text field stays for manual entry), replacing a datalist
+  that only showed matches for the text already typed.
+- Waveform cursor readout uses engineering units (for example 60 µs, 2.5 ns) instead of
+  seconds that rounded microsecond times to zero.
+- HMO3524 timeout diagnostics: an unanswered essential query now names the failing SCPI
+  command in the error (also for waveform block reads); the acquisition-state query is
+  optional and reports UNKNOWN instead of failing the connection. The cause of the
+  timeout is not yet known; it needs one more test on the real instrument.
 ### Fixed (oscilloscope 0.1.0-rc2)
 
 - Repeated captures and live preview now redraw the waveform immediately, retaining

@@ -12,7 +12,8 @@
   <section class="card">
     <h2>Connection</h2>
     <div class="toolbar">
-      <label class="resource">USB / serial VISA resource<input id="resource" list="resources" placeholder="USB0::…::INSTR or ASRL3::INSTR"><datalist id="resources"></datalist></label>
+      <label class="resource">USB / serial VISA resource<input id="resource" placeholder="USB0::…::INSTR or ASRL3::INSTR"></label>
+      <label class="resource" id="found" hidden>Found resources<select id="resources"></select></label>
       <button id="discover">Find resources</button><button id="connect" class="primary">Connect</button>
       <button id="disconnect" disabled>Disconnect</button><button id="simulate">Use simulator</button>
     </div>

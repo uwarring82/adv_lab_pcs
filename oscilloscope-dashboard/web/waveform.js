@@ -28,6 +28,15 @@ const ScopeWaveform = (() => {
     return rows.map(row => row.map(csvField).join(",")).join("\r\n") + "\r\n";
   }
 
-  return {updatePlot, toCSV};
+  // Engineering-unit text for axes and the cursor readout: 60 µs, not "0 s".
+  function format(value, unit) {
+    if (value === 0) return `0 ${unit}`;
+    for (const [scale, prefix] of [[1e3,"k"],[1,""],[1e-3,"m"],[1e-6,"µ"],[1e-9,"n"]]) {
+      if (Math.abs(value) >= scale) return `${Number((value / scale).toPrecision(4))} ${prefix}${unit}`;
+    }
+    return `${value.toExponential(2)} ${unit}`;
+  }
+
+  return {updatePlot, toCSV, format};
 })();
 if (typeof module !== "undefined") module.exports = ScopeWaveform;

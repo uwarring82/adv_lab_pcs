@@ -80,8 +80,8 @@ are retained rather than silently corrected.
 | RIGOL DS1074Z | 1 | RIGOL DS1000Z, USB | Pending hardware test |
 | RIGOL DS1104Z | 1 | RIGOL DS1000Z, USB | Pending hardware test |
 | RIGOL DS1202Z-E | 1 | RIGOL DS1000Z-E, USB, 2 channels | Pending hardware test |
-| HAMEG HMO1022 | 3 | HMO, RS-232, 2 channels | Pending hardware test |
-| HAMEG HMO3524 | 1 | HMO, RS-232, 4 channels | Pending hardware test, including firmware/header compatibility |
+| HAMEG HMO1022 | 3 | HMO, RS-232, 2 channels | One unit works over its COM port (rc2, 2026-11-11) |
+| HAMEG HMO3524 | 1 | HMO, RS-232, 4 channels | Connects and identifies, then times out after the first commands (rc2, 2026-11-11); the error now names the failing command, cause open |
 | HAMEG HM1022 | 1 | Unsupported | Confirm the nameplate; not automatically treated as HMO1022 |
 | HAMEG HM1508 / HM1508-2 | 3 / 1 | Unsupported | Separate protocol and serial handshake need verification |
 | LeCroy LT342, Tektronix TDS1002B, UNI-T UTD2025CL | 1 each | Unsupported | Outside the requested RIGOL/HAMEG starting scope |
