@@ -301,8 +301,8 @@ class VisaProvider:
             raise
         return inst
 
-    def _trace(self, inst, req: Connection):
-        log = trace.TraceLog()
+    def _trace(self, inst, req: Connection, prefix="serial-log"):
+        log = trace.TraceLog(prefix=prefix)
         trace.header(log, req.resource, req, self._visa_info())
         return log, trace.TracedInstrument(inst, log)
 
@@ -343,8 +343,8 @@ class VisaProvider:
             raise ScopeError("Serial diagnosis needs an ASRL…::INSTR (COM port) resource.")
         inst = self._open(req)
         try:
-            log, traced = self._trace(inst, req)
-            results = trace.diagnose(traced, log)
+            log, _ = self._trace(inst, req, prefix="diagnose")
+            results = trace.diagnose(inst, log)  # raw resource: the byte reader logs itself
             return {"log_file": str(log.path), "steps": results}
         finally:
             with suppress(Exception):

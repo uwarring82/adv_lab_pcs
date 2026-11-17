@@ -63,7 +63,11 @@ class TracedInstrument:
         try:
             reply = self._inst.query(command)
         except Exception as exc:
-            self._log.line("ERR", f"query {command!r}: {exc}")
+            try:
+                waiting = self._inst.bytes_in_buffer
+            except Exception:
+                waiting = "unknown"
+            self._log.line("ERR", f"query {command!r}: {exc}; bytes waiting in receive buffer: {waiting}")
             raise
         self._log.line("RX", show(reply + (self._inst.read_termination or "")))
         return reply

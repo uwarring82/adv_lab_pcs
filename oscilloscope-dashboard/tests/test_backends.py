@@ -325,3 +325,14 @@ def test_diagnosis_refuses_usb_resource():
     with pytest.raises(ScopeError):
         provider.diagnose(Connection(resource="USB0::1::2::S::INSTR"))
     assert provider.rm.opens == []
+
+
+def test_timeout_log_line_reports_waiting_bytes(tmp_path, monkeypatch):
+    from scope import trace
+    monkeypatch.setattr(trace, "log_dir", lambda: tmp_path)
+    inst = TimeoutInstrument(silent={":TIM:SCAL?"})
+    inst.bytes_in_buffer = 7
+    traced = trace.TracedInstrument(inst, trace.TraceLog())
+    with pytest.raises(TimeoutError):
+        traced.query(":TIM:SCAL?")
+    assert "bytes waiting in receive buffer: 7" in next(tmp_path.glob("*.txt")).read_text(encoding="utf-8")

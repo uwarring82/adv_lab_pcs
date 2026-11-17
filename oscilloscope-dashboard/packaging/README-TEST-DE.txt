@@ -32,9 +32,10 @@ Hardware-Testhinweise; die Treiber entsprechen rc3.
 HMO3524 PER RS232: DIAGNOSE-ABLAUF (rc5, 5 Schritte, ca. 10 Minuten)
 Der HMO3524 meldet sich mit *IDN?, antwortet danach aber nicht auf :TIM:SCAL?.
 Die Ursache ist unbekannt; rc5 schreibt ein Protokoll, mit dem wir sie finden koennen.
-1. Am Geraet: SETUP -> INTERFACE -> RS-232 waehlen, dann PARAMETER. Baudrate, Datenbits,
-   Parity, Stopbits und (falls vorhanden) Handshake notieren oder fotografieren.
-   Ist kein Handshake-Eintrag da, ist das in Ordnung; bitte vermerken "nicht vorhanden".
+1. Am Geraet im Menue Einstellungen Allgemein > Schnittstelle (je nach Geraet SETUP ->
+   INTERFACE -> PARAMETER) Baudrate, Stoppbits, Paritaet und Flusssteuerung (Keine oder
+   RTS/CTS) ansehen und notieren oder fotografieren. Ausserdem notieren: welches Kabel
+   bzw. welcher Adapter verwendet wird (gerade oder Nullmodem, USB-RS232-Adapter: Modell).
 2. Im Browser: Serial connection settings aufklappen. Baud rate wie am Geraet (115200),
    Flow control None, Line ending LF, Timeout 5. Die ASRL...::INSTR des COM-Ports waehlen
    (Disconnect, falls verbunden). Dann "Diagnose serial link" klicken und ca. 20 s warten.
@@ -43,8 +44,8 @@ Die Ursache ist unbekannt; rc5 schreibt ein Protokoll, mit dem wir sie finden ko
 4. Mit 115200: Record serial log anhaken, Pause after *IDN? auf 500, Connect klicken.
    Die Fehlermeldung vollstaendig kopieren. Falls Flow control am Geraet einstellbar ist,
    Schritt 2 zusaetzlich mit RTS / CTS wiederholen (an beiden Enden gleich).
-5. "Download latest log" klicken (oder die Dateien aus dem Ordner
-   %USERPROFILE%\oscilloscope-dashboard-logs senden: alle diagnose-*.txt und serial-log-*.txt)
+5. "Download latest log" klicken (oder alle Dateien diagnose-*.txt und
+   serial-log-*.txt aus dem Ordner %USERPROFILE%\oscilloscope-dashboard-logs senden)
    und zusammen mit den Notizen aus Schritt 1 und der Fehlermeldung zurueckschicken.
 
 HAMEG-TEST
