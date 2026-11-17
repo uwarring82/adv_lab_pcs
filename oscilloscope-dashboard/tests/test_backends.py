@@ -331,7 +331,7 @@ def test_timeout_log_line_reports_waiting_bytes(tmp_path, monkeypatch):
     from scope import trace
     monkeypatch.setattr(trace, "log_dir", lambda: tmp_path)
     inst = TimeoutInstrument(silent={":TIM:SCAL?"})
-    inst.bytes_in_buffer = 7
+    inst.bytes_in_buffer, inst.write_termination = 7, "\n"
     traced = trace.TracedInstrument(inst, trace.TraceLog())
     with pytest.raises(TimeoutError):
         traced.query(":TIM:SCAL?")
