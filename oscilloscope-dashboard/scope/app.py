@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import __version__
+from . import __version__, trace
 from .backends import ScopeError, VisaProvider
 from .manager import Manager
 from .models import Action, Capture, Connection, Settings
@@ -61,6 +61,20 @@ def create_app(simulated=False, visa_library=None, manager=None):
     @app.post("/api/connect")
     def connect(req: Connection):
         return mgr.connect(req)
+
+    @app.post("/api/diagnose")
+    def diagnose(req: Connection):
+        """Read-only serial test sequence; writes a log file and returns its path and per-step results."""
+        return mgr.diagnose(req)
+
+    @app.get("/api/log/latest")
+    def latest_log():
+        """Download the newest serial log (written by 'Record serial log' or the diagnosis)."""
+        logs = sorted(trace.log_dir().glob("*.txt"), key=lambda p: p.stat().st_mtime)
+        if not logs:
+            raise ScopeError("No serial log yet. Tick 'Record serial log' and connect, or run the diagnosis.")
+        return Response(logs[-1].read_text(encoding="utf-8"), media_type="text/plain; charset=utf-8", headers={
+            "Content-Disposition": f'attachment; filename="{logs[-1].name}"'})
 
     @app.post("/api/simulator")
     def simulator():

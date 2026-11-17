@@ -113,11 +113,21 @@ async function connect(simulated) {
   await api(simulated ? "simulator" : "connect", simulated ? {} : {
     resource: $("resource").value.trim(), baud_rate: Number($("baud").value),
     flow_control: $("flow").value, termination: $("termination").value,
-    timeout_ms: Math.round(Number($("timeout").value) * 1000)
+    timeout_ms: Math.round(Number($("timeout").value) * 1000),
+    trace: $("trace").checked, settle_ms: Number($("settle").value)
   });
   await status(); await readSettings();
   notice(simulated ? "Simulator connected. All waveforms are synthetic." : "Connected. Compare the first capture with the instrument display; see model coverage below.");
 }
+$("diagnose").onclick = () => task(async () => {
+  notice("Diagnosing the serial link (about 20 s). Do not touch the instrument settings.");
+  const r = await api("diagnose", {
+    resource: $("resource").value.trim(), baud_rate: Number($("baud").value),
+    flow_control: $("flow").value, termination: $("termination").value, timeout_ms: 5000
+  });
+  const bad = r.steps.filter(s => !s.ok).map(s => s.command);
+  notice(`Diagnosis done. ${bad.length ? "No reply to: " + bad.join(", ") + ". " : "All commands answered. "}Use 'Download latest log' and send the file.`, !!bad.length);
+});
 $("resources").onchange = () => { $("resource").value = $("resources").value; };
 $("connect").onclick = () => task(() => connect(false));
 $("simulate").onclick = () => task(() => connect(true));

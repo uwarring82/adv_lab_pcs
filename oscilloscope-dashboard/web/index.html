@@ -23,6 +23,11 @@
         <label>Flow control<select id="flow"><option value="none">None</option><option value="rts_cts">RTS / CTS</option><option value="xon_xoff">XON / XOFF</option></select></label>
         <label>Line ending<select id="termination"><option>LF</option><option>CRLF</option><option>CR</option></select></label>
         <label>Timeout (s)<input id="timeout" type="number" min="0.1" max="30" step="0.1" value="5"></label>
+        <label>Pause after *IDN? (ms)<input id="settle" type="number" min="0" max="2000" step="50" value="0"></label>
+        <label><input id="trace" type="checkbox"> Record serial log</label>
+      </div>
+      <div class="toolbar serial">
+        <button id="diagnose">Diagnose serial link</button><a id="getlog" href="/api/log/latest" download>Download latest log</a>
       </div>
       <p class="hint">8 data bits, no parity, 1 stop bit. Match the baud rate and flow control to the instrument menu. These defaults have not been verified on the lab PCs.</p>
     </details>

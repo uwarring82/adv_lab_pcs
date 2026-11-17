@@ -225,3 +225,103 @@ def test_block_timeout_names_the_command_and_restores_termination():
     with pytest.raises(DeviceError, match=r":CHAN1:DATA\?"):
         VisaScope(inst, identify("HAMEG,HMO3524,123,1")).block(":CHAN1:DATA?", 4)
     assert inst.read_termination == "\n"
+
+
+# --- rc5: serial log, diagnosis, serial hints -------------------------------------------------
+
+class SerialPeer(Instrument):
+    """Byte-level serial peer: answers chosen commands, stays silent for the others."""
+    def __init__(self, answers, **kw):
+        super().__init__(replies=dict(answers), **kw)
+        self.answers, self.buffer, self.timeout = answers, b"", 5000
+        self.write_termination = "\n"
+        self.flushed = 0
+
+    def write_raw(self, data):
+        command = data.decode().strip()
+        self.writes.append(command)
+        if command in self.answers:
+            self.buffer += (self.answers[command] + "\r\n").encode()
+
+    def read_bytes(self, count):
+        if not self.buffer:
+            raise TimeoutError("VI_ERROR_TMO")
+        result, self.buffer = self.buffer[:count], self.buffer[count:]
+        return result
+
+    def flush(self, mask):
+        self.flushed += 1
+        self.buffer = b""
+
+
+def test_trace_log_records_every_exchange(tmp_path, monkeypatch):
+    from scope import trace
+    monkeypatch.setattr(trace, "log_dir", lambda: tmp_path)
+    inst = Instrument({"*IDN?": "HAMEG,HMO3524,123,1"})
+    provider = VisaProvider()
+    provider.rm = ResourceManager(inst)
+    scope = provider.connect(Connection(resource="ASRL3::INSTR", trace=True, settle_ms=0))
+    text = open(scope.info["trace_file"], encoding="utf-8").read()
+    assert "baud=115200" in text and "flow=none" in text
+    assert "TX" in text and "*IDN?" in text and "RX" in text and "HMO3524" in text
+    assert "hex=" in text
+
+
+def test_trace_log_records_timeouts(tmp_path, monkeypatch):
+    from scope import trace
+    monkeypatch.setattr(trace, "log_dir", lambda: tmp_path)
+    inst = TimeoutInstrument(silent={"*IDN?"})
+    provider = VisaProvider()
+    provider.rm = ResourceManager(inst)
+    with pytest.raises(TimeoutError):
+        provider.connect(Connection(resource="ASRL3::INSTR", trace=True))
+    assert "ERR" in next(tmp_path.glob("*.txt")).read_text(encoding="utf-8")
+
+
+def test_serial_timeout_error_names_link_and_next_steps():
+    inst = TimeoutInstrument(silent={":TIM:SCAL?"}, replies=HMO_REPLIES)
+    scope = VisaScope(inst, identify("HAMEG,HMO3524,123,1"), "115200 baud 8N1, flow none, line end LF")
+    with pytest.raises(DeviceError, match=r"115200 baud.*flow none.*Diagnose serial link"):
+        scope.settings(1)
+
+
+def test_usb_timeout_error_has_no_serial_hint():
+    inst = TimeoutInstrument(silent={":TIM:SCAL?"}, replies=HMO_REPLIES)
+    with pytest.raises(DeviceError) as err:
+        VisaScope(inst, identify("HAMEG,HMO3524,123,1")).settings(1)
+    assert "Serial link" not in str(err.value)
+
+
+def test_diagnosis_logs_bytes_and_finds_the_silent_command(tmp_path, monkeypatch):
+    from scope import trace
+    monkeypatch.setattr(trace, "log_dir", lambda: tmp_path)
+    monkeypatch.setattr(trace.time, "sleep", lambda s: None)
+    peer = SerialPeer({"*IDN?": "HAMEG,HMO3524,123,1", ":SYST:ERR?": '0,"No error"', "*OPC?": "1"})
+    provider = VisaProvider()
+    provider.rm = ResourceManager(peer)
+    result = provider.diagnose(Connection(resource="ASRL3::INSTR"))
+    failed = [s["command"] for s in result["steps"] if not s["ok"]]
+    assert ":TIM:SCAL?" in failed and ":TIMebase:SCALe?" in failed and "*IDN?" not in failed
+    text = open(result["log_file"], encoding="utf-8").read()
+    assert "RXB" in text and "hex=" in text and "no reply" in text
+    assert peer.closed and peer.flushed > 0
+    assert peer.baud_rate == 115200
+
+
+def test_diagnosis_stops_when_identification_is_silent(tmp_path, monkeypatch):
+    from scope import trace
+    monkeypatch.setattr(trace, "log_dir", lambda: tmp_path)
+    monkeypatch.setattr(trace.time, "sleep", lambda s: None)
+    peer = SerialPeer({})
+    provider = VisaProvider()
+    provider.rm = ResourceManager(peer)
+    result = provider.diagnose(Connection(resource="ASRL3::INSTR"))
+    assert peer.writes == ["*IDN?"] and len(result["steps"]) == 1
+
+
+def test_diagnosis_refuses_usb_resource():
+    provider = VisaProvider()
+    provider.rm = ResourceManager(Instrument())
+    with pytest.raises(ScopeError):
+        provider.diagnose(Connection(resource="USB0::1::2::S::INSTR"))
+    assert provider.rm.opens == []

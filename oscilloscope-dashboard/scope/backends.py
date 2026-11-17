@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import math
 import re
+import time
 from contextlib import suppress
 
 import numpy as np
 
+from . import trace
 from .models import Connection, Settings
 
 MAX_POINTS = 20000
+SETTLE_S = 0.1  # after *IDN? on a serial line
 PROFILES = {
     "DS1054Z": ("rigol", 4), "DS1074Z": ("rigol", 4),
     "DS1104Z": ("rigol", 4), "DS1202Z-E": ("rigol", 2),
@@ -117,8 +120,9 @@ class Simulator:
 
 
 class VisaScope:
-    def __init__(self, instrument, info):
-        self.instrument, self.info = instrument, info
+    def __init__(self, instrument, info, link=""):
+        self.instrument, self.info, self.link = instrument, info, link
+        self.serial = bool(link)
 
     @property
     def rigol(self):
@@ -126,13 +130,18 @@ class VisaScope:
 
     def ask(self, command):
         """Query with the failing command named in the error (a bare VISA timeout does not say which)."""
+        if self.serial:
+            trace.discard_input(self.instrument)  # no stale or late bytes from an earlier exchange
         try:
             return self.instrument.query(command)
         except (ScopeError, KeyboardInterrupt):
             raise
         except Exception as exc:
+            hint = (f" Serial link: {self.link}. The instrument answered *IDN? but not this command: try "
+                    "another baud rate (9600 or 19200), another flow control or line ending, or run "
+                    "'Diagnose serial link' and send the log file." if self.serial else "")
             raise DeviceError(f"No usable reply to {command} from {self.info.get('model', 'instrument')} ({exc}). "
-                              "Report this command; check the serial settings and the instrument's remote setting.") from exc
+                              f"Report this command; check the serial settings and the instrument's remote setting.{hint}") from exc
 
     def ask_optional(self, command, default="UNKNOWN"):
         """Status-only query: if the model does not answer it, report UNKNOWN instead of failing the connection."""
@@ -267,7 +276,8 @@ class VisaProvider:
         return [r for r in self.manager().list_resources()
                 if re.fullmatch(r"(?:USB[^\r\n]*|ASRL[^\r\n]*)::INSTR", r, re.I)]
 
-    def connect(self, req: Connection):
+    def _open(self, req: Connection):
+        """Open the resource and apply the serial and termination settings; no command is sent."""
         if not re.fullmatch(r"(?:USB[^\r\n]*|ASRL[^\r\n]*)::INSTR", req.resource, re.I):
             raise ScopeError("Choose a USB…::INSTR or ASRL…::INSTR VISA resource.")
         inst = self.manager().open_resource(req.resource)
@@ -285,13 +295,60 @@ class VisaProvider:
                 inst.flow_control = {"none": constants.ControlFlow.none,
                                      "rts_cts": constants.ControlFlow.rts_cts,
                                      "xon_xoff": constants.ControlFlow.xon_xoff}[req.flow_control]
-            info = identify(inst.query("*IDN?").strip())
-            info["resource"] = req.resource
-            return VisaScope(inst, info)
         except Exception:
             with suppress(Exception):
                 inst.close()
             raise
+        return inst
+
+    def _trace(self, inst, req: Connection):
+        log = trace.TraceLog()
+        trace.header(log, req.resource, req, self._visa_info())
+        return log, trace.TracedInstrument(inst, log)
+
+    def _visa_info(self):
+        try:
+            import pyvisa
+            return f"pyvisa {pyvisa.__version__}, {self.manager().visalib}"
+        except Exception as exc:
+            return f"VISA library unknown ({exc})"
+
+    def connect(self, req: Connection):
+        inst = self._open(req)
+        log = None
+        try:
+            if req.trace:
+                log, inst = self._trace(inst, req)
+            info = identify(inst.query("*IDN?").strip())
+            if req.resource.upper().startswith("ASRL"):
+                # A serial reply may still be arriving (trailing CR/LF); drop it before the next query.
+                time.sleep(max(SETTLE_S, req.settle_ms / 1000))
+                trace.discard_input(inst, log)
+            info["resource"] = req.resource
+            if log:
+                info["trace_file"] = str(log.path)
+            link = (f"{req.baud_rate} baud 8N1, flow {req.flow_control}, line end {req.termination}"
+                    if req.resource.upper().startswith("ASRL") else "")
+            return VisaScope(inst, info, link)
+        except Exception as exc:
+            if log:
+                log.line("ERR", f"connect failed: {exc}")
+            with suppress(Exception):
+                inst.close()
+            raise
+
+    def diagnose(self, req: Connection):
+        """Read-only query sequence with a byte-level log; closes the port again afterwards."""
+        if not re.fullmatch(r"ASRL[^\r\n]*::INSTR", req.resource, re.I):
+            raise ScopeError("Serial diagnosis needs an ASRL…::INSTR (COM port) resource.")
+        inst = self._open(req)
+        try:
+            log, traced = self._trace(inst, req)
+            results = trace.diagnose(traced, log)
+            return {"log_file": str(log.path), "steps": results}
+        finally:
+            with suppress(Exception):
+                inst.close()
 
     def close(self):
         if self.rm is not None:

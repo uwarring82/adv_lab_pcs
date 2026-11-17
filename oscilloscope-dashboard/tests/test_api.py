@@ -145,3 +145,11 @@ def test_overlapping_capture_controls_and_disconnect_are_rejected():
         finally:
             release.set()
         assert future.result().status_code == 200
+
+
+def test_diagnose_needs_disconnected_port_and_latest_log_404_style(client, tmp_path, monkeypatch):
+    from scope import trace
+    monkeypatch.setattr(trace, "log_dir", lambda: tmp_path)
+    assert client.get("/api/log/latest").status_code == 422
+    r = client.post("/api/diagnose", json={"resource": "ASRL3::INSTR"})
+    assert r.status_code == 422 and "Disconnect first" in r.json()["detail"]

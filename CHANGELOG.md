@@ -6,6 +6,22 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added (oscilloscope 0.1.0-rc5)
+
+- Lab feedback on rc4 (2026-11-17): the HMO3524 (firmware 02.030-01.038-03.046, RS-232,
+  115200 baud) still connects and identifies, then fails with a VISA timeout on `:TIM:SCAL?`.
+  The cause is not known; rc5 adds tools to find it, not a confirmed fix.
+- Serial diagnosis: "Diagnose serial link" opens the COM port, sends a fixed read-only
+  sequence (`*IDN?`, `:TIM:SCAL?`, `:TIMebase:SCALe?`, `:SYST:ERR?`, `*CLS`, `*OPC?`,
+  `:CHAN1:SCAL?`), records every received byte with its time and writes a text log
+  (`oscilloscope-dashboard-logs` in the user's home folder). API: `POST /api/diagnose`.
+- "Record serial log" for normal connections (`trace` in `POST /api/connect`) logs every
+  command and reply as text and hex; `GET /api/log/latest` downloads the newest log.
+- Serial only: unread input is discarded before each query (no stale bytes), an optional
+  pause after `*IDN?` (`settle_ms`, default 0), and a timeout error that names baud rate,
+  flow control and line ending and suggests the next settings to try. USB behaviour is
+  unchanged.
+
 ### Changed (oscilloscope 0.1.0-rc4)
 
 - Correct the dashboard, README and Windows test notes to record confirmed rc2 plot

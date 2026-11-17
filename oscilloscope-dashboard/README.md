@@ -12,7 +12,7 @@ quoted CSV numbers in rc1. **Plot refresh is confirmed working with rc2; the HMO
 also works over its COM port.** rc3 adds a resource drop-down, readable cursor units
 and HMO3524 diagnostics; rc4 corrects the displayed hardware-test status. These new
 features await a lab retest. **The HMO3524 still has an unresolved timeout after
-identification; the diagnostic changes are not a confirmed fix.** Other models
+identification (rc4, 2026-11-17); rc5's serial diagnosis and log are not a confirmed fix.** Other models
 await hardware validation.
 
 ## Start
@@ -85,7 +85,7 @@ are retained rather than silently corrected.
 | RIGOL DS1104Z | 1 | RIGOL DS1000Z, USB | Pending hardware test |
 | RIGOL DS1202Z-E | 1 | RIGOL DS1000Z-E, USB, 2 channels | Pending hardware test |
 | HAMEG HMO1022 | 3 | HMO, RS-232, 2 channels | One unit works over its COM port (rc2, 2026-11-11) |
-| HAMEG HMO3524 | 1 | HMO, RS-232, 4 channels | Connects and identifies, then times out after the first commands (rc2, 2026-11-11); the error now names the failing command, cause open |
+| HAMEG HMO3524 | 1 | HMO, RS-232, 4 channels | Connects and identifies, then times out on `:TIM:SCAL?` (rc2 2026-11-11, rc4 2026-11-17, firmware 02.030-01.038-03.046, 115200 baud); cause open; rc5 adds a serial diagnosis and log |
 | HAMEG HM1022 | 1 | Unsupported | Confirm the nameplate; not automatically treated as HMO1022 |
 | HAMEG HM1508 / HM1508-2 | 3 / 1 | Unsupported | Separate protocol and serial handshake need verification |
 | LeCroy LT342, Tektronix TDS1002B, UNI-T UTD2025CL | 1 each | Unsupported | Outside the requested RIGOL/HAMEG starting scope |
@@ -205,6 +205,18 @@ closing it stops the server. The PC still needs the same working VISA/USB/serial
 drivers as source execution. CI builds and smoke-tests the executable as a separate
 artifact; the spectrometer's release process is unchanged. A local Windows build
 cannot be verified on macOS.
+
+## Serial diagnosis (HMO over RS-232)
+
+Under *Serial connection settings*: **Record serial log** writes every command and reply
+(text and hex, with times) to `oscilloscope-dashboard-logs` in the user's home folder.
+**Diagnose serial link** (disconnected state, ASRL resource) sends `*IDN?`, `:TIM:SCAL?`,
+`:TIMebase:SCALe?`, `:SYST:ERR?`, `*CLS`, `*OPC?` and `:CHAN1:SCAL?`, reads each reply byte
+by byte, and stops after a silent `*IDN?`. **Download latest log** saves the file. The log
+holds no personal data. The HMO RS-232 parameters are set on the instrument under
+SETUP → INTERFACE → PARAMETER (R&S HMO Compact SCPI manual, section 1.1.2); that manual
+does not describe a handshake setting. Serial connections also discard unread input
+before each query and accept a pause after `*IDN?` (0–2000 ms).
 
 ## Lab acceptance test
 

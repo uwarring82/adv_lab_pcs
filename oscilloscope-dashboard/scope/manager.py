@@ -68,6 +68,12 @@ class Manager:
             self.backend = self.provider.connect(req) if req else Simulator()
             return self.backend.info.copy()
 
+    def diagnose(self, req):
+        with self.access(invalidate=False):
+            if self.backend is not None:
+                raise ScopeError("Disconnect first: the serial diagnosis needs the COM port for itself.")
+            return self.provider.diagnose(req)
+
     def disconnect(self):
         with self.access():
             self._drop()

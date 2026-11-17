@@ -1,4 +1,4 @@
-Oscilloscope Dashboard 0.1.0-rc4 - Windows-Test nach zweiter Rueckmeldung
+Oscilloscope Dashboard 0.1.0-rc5 - Windows-Test nach dritter Rueckmeldung
 
 Voraussetzung: Windows 10/11, 64 Bit (x64).
 Python muss nicht installiert sein. Fuer ein echtes RIGOL werden weiterhin eine
@@ -28,6 +28,24 @@ Aufnahmen und exportiert Zahlen ohne Anfuehrungszeichen. rc3 zeigt gefundene
 Ressourcen in einer Auswahlliste und die Cursor-Zeit in passenden Einheiten (z. B. us, ns).
 Die Plot-Aktualisierung mit rc2 wurde im Labor bestaetigt. rc4 korrigiert die
 Hardware-Testhinweise; die Treiber entsprechen rc3.
+
+HMO3524 PER RS232: DIAGNOSE-ABLAUF (rc5, 5 Schritte, ca. 10 Minuten)
+Der HMO3524 meldet sich mit *IDN?, antwortet danach aber nicht auf :TIM:SCAL?.
+Die Ursache ist unbekannt; rc5 schreibt ein Protokoll, mit dem wir sie finden koennen.
+1. Am Geraet: SETUP -> INTERFACE -> RS-232 waehlen, dann PARAMETER. Baudrate, Datenbits,
+   Parity, Stopbits und (falls vorhanden) Handshake notieren oder fotografieren.
+   Ist kein Handshake-Eintrag da, ist das in Ordnung; bitte vermerken "nicht vorhanden".
+2. Im Browser: Serial connection settings aufklappen. Baud rate wie am Geraet (115200),
+   Flow control None, Line ending LF, Timeout 5. Die ASRL...::INSTR des COM-Ports waehlen
+   (Disconnect, falls verbunden). Dann "Diagnose serial link" klicken und ca. 20 s warten.
+3. Wiederholen mit Baud rate 9600 am Geraet UND im Browser (Geraet zuerst aendern).
+   Danach wieder auf 115200 zurueckstellen, falls 9600 nichts aendert.
+4. Mit 115200: Record serial log anhaken, Pause after *IDN? auf 500, Connect klicken.
+   Die Fehlermeldung vollstaendig kopieren. Falls Flow control am Geraet einstellbar ist,
+   Schritt 2 zusaetzlich mit RTS / CTS wiederholen (an beiden Enden gleich).
+5. "Download latest log" klicken (oder die Dateien aus dem Ordner
+   %USERPROFILE%\oscilloscope-dashboard-logs senden: alle diagnose-*.txt und serial-log-*.txt)
+   und zusammen mit den Notizen aus Schritt 1 und der Fehlermeldung zurueckschicken.
 
 HAMEG-TEST
 Ein HMO1022 funktioniert laut Laborrueckmeldung ueber seinen COM-Port.
