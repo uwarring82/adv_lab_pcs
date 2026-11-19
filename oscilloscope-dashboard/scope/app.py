@@ -58,6 +58,11 @@ def create_app(simulated=False, visa_library=None, manager=None):
     def resources():
         return mgr.resources()
 
+    @app.get("/api/diagnostics")
+    def diagnostics():
+        """Cached transport exchanges only. Does not query the instrument."""
+        return mgr.diagnostics()
+
     @app.post("/api/connect")
     def connect(req: Connection):
         return mgr.connect(req)

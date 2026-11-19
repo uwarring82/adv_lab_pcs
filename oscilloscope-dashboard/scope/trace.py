@@ -1,8 +1,8 @@
-"""Serial/VISA exchange log and the one-button HMO diagnosis (rc5).
+"""Serial/VISA exchange log and the one-button HMO diagnosis.
 
 The log is plain text, one line per event: ISO time with milliseconds, direction (TX = sent,
-RX = received, ERR = failure) and the data as text and hex. It contains no personal data; it is
-meant to be sent back by a lab user when an instrument times out.
+RX = received, ERR = failure) and the data as text and hex. It includes the instrument
+identity and should be reviewed before a lab user shares it for diagnosis.
 """
 from __future__ import annotations
 
@@ -128,8 +128,10 @@ def discard_input(inst, log=None):
             log.note(f"flush not possible: {exc}")
 
 
-STEPS = [("*IDN?", True), (":TIM:SCAL?", True), (":TIMebase:SCALe?", True), (":SYST:ERR?", True),
-         ("*CLS", False), (":TIM:SCAL?", True), ("*OPC?", True), (":CHAN1:SCAL?", True)]
+STEPS = [("*IDN?", True), (":HOR:MAIN:SCAL?", True), (":HORizontal:MAIN:SCALe?", True),
+         (":TIM:SCAL?", True), (":TIMebase:SCALe?", True), (":SYST:ERR?", True),
+         ("*CLS", False), (":TIM:SCAL?", True), ("*OPC?", True), (":CHAN1:SCAL?", True),
+         ("*CLS", False)]  # unsupported comparison queries must not poison the next normal connection
 
 
 def diagnose(inst, log, wait_s=2.0, pause_s=0.5):

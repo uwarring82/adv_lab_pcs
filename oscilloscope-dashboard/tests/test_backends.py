@@ -106,7 +106,7 @@ def test_disabled_channel_not_silently_enabled():
 def test_hmo_peak_detect_rejected_before_data_transfer():
     inst = Instrument({":CHAN1:STAT?": "1", ":CHAN1:DATA:HEAD?": "0,1,1200,2"})
     with pytest.raises(ScopeError, match="Peak-detect"):
-        VisaScope(inst, identify("HAMEG,HMO3524,123,1")).capture(1)
+        VisaScope(inst, identify("HAMEG,HMO1022,123,1")).capture(1)
     assert ":CHAN1:DATA?" not in inst.writes
 
 
@@ -200,7 +200,8 @@ class TimeoutInstrument(Instrument):
         self.cleared = True
 
 
-HMO_REPLIES = {":TIM:SCAL?": "0.001", ":CHAN1:SCAL?": "0.5", ":CHAN1:COUP?": "DCL", ":CHAN1:STAT?": "1",
+HMO_REPLIES = {":TIM:SCAL?": "0.001", ":HOR:MAIN:SCAL?": "0.001",
+               ":CHAN1:SCAL?": "0.5", ":CHAN1:COUP?": "DC", ":CHAN1:STAT?": "1",
                ":ACQ:STAT?": "RUN"}
 
 
@@ -279,17 +280,94 @@ def test_trace_log_records_timeouts(tmp_path, monkeypatch):
 
 
 def test_serial_timeout_error_names_link_and_next_steps():
-    inst = TimeoutInstrument(silent={":TIM:SCAL?"}, replies=HMO_REPLIES)
+    inst = TimeoutInstrument(silent={":HOR:MAIN:SCAL?"}, replies=HMO_REPLIES)
     scope = VisaScope(inst, identify("HAMEG,HMO3524,123,1"), "115200 baud 8N1, flow none, line end LF")
     with pytest.raises(DeviceError, match=r"115200 baud.*flow none.*Diagnose serial link"):
         scope.settings(1)
 
 
 def test_usb_timeout_error_has_no_serial_hint():
-    inst = TimeoutInstrument(silent={":TIM:SCAL?"}, replies=HMO_REPLIES)
+    inst = TimeoutInstrument(silent={":HOR:MAIN:SCAL?"}, replies=HMO_REPLIES)
     with pytest.raises(DeviceError) as err:
         VisaScope(inst, identify("HAMEG,HMO3524,123,1")).settings(1)
     assert "Serial link" not in str(err.value)
+
+
+# HMO3524 uses the legacy horizontal/trace dialect, not HMO Compact's timebase/data API.
+def legacy_hmo(inst):
+    return VisaScope(inst, identify("HAMEG,HMO3524,TEST,SW02.030"))
+
+
+def test_hmo3524_settings_and_writes_use_legacy_timebase():
+    inst = Instrument({key: value for key, value in HMO_REPLIES.items() if key != ":TIM:SCAL?"})
+    backend = legacy_hmo(inst)
+    settings = backend.settings(1)
+    assert settings["timebase_s"] == 0.001
+    assert settings["coupling"] == "DC" and settings["enabled"] is True
+    backend.configure(Settings(timebase_s=0.00001, scale_v=5, coupling="AC"))
+    assert ":HOR:MAIN:SCAL 1e-05" in inst.writes
+    assert ":CHAN1:SCAL 5" in inst.writes and ":CHAN1:COUP AC" in inst.writes
+    assert not any(command.startswith(":TIM") for command in inst.writes)
+    assert backend.info["protocol"] == "hmo3524_legacy"
+    assert backend.info["unsupported_actions"] == ["autoscale"]
+
+
+@pytest.mark.parametrize("action,commands", [
+    ("run", [":ACQ:STAT RUN"]), ("stop", [":ACQ:STAT STOP"]),
+    ("single", [":TRIG:A:MODE SING", ":ACQ:STAT RUN"]),
+])
+def test_hmo3524_actions_use_documented_commands(action, commands):
+    inst = Instrument()
+    legacy_hmo(inst).action(action)
+    assert inst.writes == [":SYST:ERR?", *commands, ":SYST:ERR?"]
+
+
+def test_hmo3524_auto_setup_rejected_before_instrument_contact():
+    inst = Instrument()
+    with pytest.raises(ScopeError, match="front panel"):
+        legacy_hmo(inst).action("autoscale")
+    assert inst.writes == []
+
+
+LEGACY_TRACE_REPLIES = {":CHAN2:STAT?": "ON", ":TRAC:TYPE?": "NORM", ":TRAC:POIN?": "4",
+                       ":TRAC:XINC?": "0.000001", ":TRAC:XOR?": "-0.003", ":TRAC:XREF?": "1",
+                       ":TRAC:YINC?": "0.02", ":TRAC:YOR?": "-1.5", ":TRAC:YREF?": "128"}
+
+
+def test_hmo3524_byte_capture_preserves_both_origins_references_and_unsigned_values():
+    inst = Instrument(LEGACY_TRACE_REPLIES, block(bytes([10, 128, 190, 255])))
+    data = legacy_hmo(inst).capture(2)
+    np.testing.assert_allclose(data["time_s"], [-0.003001, -0.003, -0.002999, -0.002998])
+    np.testing.assert_allclose(data["voltage_v"], [-3.86, -1.5, -0.26, 1.04])
+    assert ":TRAC:SOUR CH2" in inst.writes and ":TRAC:FORM BYTE" in inst.writes
+    assert ":TRAC:POIN DEF" in inst.writes and ":TRAC:DATA?" in inst.writes
+    assert not any(command.startswith((":TIM", ":FORM", ":CHAN2:DATA")) for command in inst.writes)
+    assert not inst.payload and inst.read_termination == "\n"
+
+
+@pytest.mark.parametrize("count", ["0", "1", "20001", "4.5", "9.91e37", "NaN"])
+def test_hmo3524_invalid_count_prevents_binary_read(count):
+    inst = Instrument(LEGACY_TRACE_REPLIES | {":TRAC:POIN?": count})
+    with pytest.raises(DeviceError):
+        legacy_hmo(inst).capture(2)
+    assert ":TRAC:DATA?" not in inst.writes
+
+
+@pytest.mark.parametrize("field,value", [("XINC", "0"), ("XINC", "-1"), ("YINC", "0"),
+                                        ("XOR", "9.91e37"), ("YREF", "NaN")])
+def test_hmo3524_invalid_scaling_prevents_binary_read(field, value):
+    inst = Instrument(LEGACY_TRACE_REPLIES | {f":TRAC:{field}?": value})
+    with pytest.raises(DeviceError):
+        legacy_hmo(inst).capture(2)
+    assert ":TRAC:DATA?" not in inst.writes
+
+
+def test_hmo3524_minmax_trace_is_rejected_without_changing_acquisition():
+    inst = Instrument(LEGACY_TRACE_REPLIES | {":TRAC:TYPE?": "MINMAX"})
+    with pytest.raises(ScopeError, match="Peak-detect"):
+        legacy_hmo(inst).capture(2)
+    assert ":TRAC:DATA?" not in inst.writes
+    assert not any(command.startswith(":ACQ") for command in inst.writes)
 
 
 def test_diagnosis_logs_bytes_and_finds_the_silent_command(tmp_path, monkeypatch):
@@ -336,3 +414,47 @@ def test_timeout_log_line_reports_waiting_bytes(tmp_path, monkeypatch):
     with pytest.raises(TimeoutError):
         traced.query(":TIM:SCAL?")
     assert "bytes waiting in receive buffer: 7" in next(tmp_path.glob("*.txt")).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize('next_step_firmware', [False, True])
+@pytest.mark.parametrize('requested,previous', [(1e-5,5e-6),(2e-5,1e-5),(5e-5,2e-5)])
+def test_legacy_timebase_corrects_only_observed_next_step(next_step_firmware, requested, previous):
+    class Timebase(Instrument):
+        value = .001
+        def write(self, command):
+            super().write(command)
+            if command.startswith(':HOR:MAIN:SCAL '):
+                value = float(command.split()[1])
+                self.value = {5e-6:1e-5,1e-5:2e-5,2e-5:5e-5,5e-5:1e-4}[value] if next_step_firmware else value
+        def query(self, command):
+            if command == ':HOR:MAIN:SCAL?':
+                self.writes.append(command)
+                return str(self.value)
+            return super().query(command)
+    inst = Timebase()
+    legacy_hmo(inst).configure(Settings(timebase_s=requested))
+    assert inst.value == pytest.approx(requested)
+    setters = [s for s in inst.writes if s.startswith(':HOR:MAIN:SCAL ')]
+    expected = [f':HOR:MAIN:SCAL {requested:.12g}']
+    if next_step_firmware: expected.append(f':HOR:MAIN:SCAL {previous:.12g}')
+    assert setters == expected
+
+
+def test_legacy_timebase_correction_is_bounded_and_reports_failed_readback():
+    inst = Instrument({':HOR:MAIN:SCAL?': '2e-5'})
+    with pytest.raises(ScopeError, match='Timebase correction did not reach'):
+        legacy_hmo(inst).configure(Settings(timebase_s=1e-5))
+    assert [s for s in inst.writes if s.startswith(':HOR:MAIN:SCAL ')] == [
+        ':HOR:MAIN:SCAL 1e-05', ':HOR:MAIN:SCAL 5e-06']
+
+
+def test_legacy_timebase_read_failure_never_resends_setter():
+    class FailedRead(Instrument):
+        def query(self, command):
+            if command == ':HOR:MAIN:SCAL?':
+                raise TimeoutError('read failed')
+            return super().query(command)
+    inst = FailedRead()
+    with pytest.raises(DeviceError, match='read failed'):
+        legacy_hmo(inst).configure(Settings(timebase_s=1e-5))
+    assert [s for s in inst.writes if s.startswith(':HOR:MAIN:SCAL ')] == [':HOR:MAIN:SCAL 1e-05']

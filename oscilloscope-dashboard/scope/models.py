@@ -15,6 +15,7 @@ class Connection(RequestModel):
     termination: Literal["LF", "CRLF", "CR"] = "LF"
     timeout_ms: int = Field(default=5000, ge=100, le=30000)
     trace: bool = False  # write every exchange to a log file (serial diagnosis)
+    clear_status: bool = False  # explicit *CLS after supported identification; never changes acquisition settings
     settle_ms: int = Field(default=0, ge=0, le=2000)  # serial only: pause after *IDN? before the next query
 
 

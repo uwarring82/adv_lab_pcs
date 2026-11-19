@@ -49,7 +49,10 @@ def identify(identity):
                          "HM1022 entry need protocol/model confirmation; no control commands were sent.")
     return {"vendor": vendor, "model": model, "serial": serial,
             "family": profile[0], "channels": profile[1], "simulated": False,
-            "validation": "Hardware validation pending"}
+            "protocol": "hmo3524_legacy" if key == "HMO3524" else profile[0],
+            "unsupported_actions": ["autoscale"] if key == "HMO3524" else [],
+            "validation": ("Mac USB capture, controls and CSV scaling checked; Windows RS-232 pending"
+                           if key == "HMO3524" else "Hardware validation pending")}
 
 
 def numbers(reply, count):
@@ -72,6 +75,15 @@ def waveform(times, volts):
             "points": len(times), "mean_v": float(np.mean(volts)),
             "rms_v": float(np.sqrt(np.mean(volts ** 2))),
             "peak_to_peak_v": float(np.ptp(volts))}
+
+
+def legacy_timebase_neighbors(value):
+    """Previous/next standard 1-2-5 setting, or None for a nonstandard request."""
+    decade = 10 ** math.floor(math.log10(value))
+    for nominal, previous, following in ((1, .5, 2), (2, 1, 5), (5, 2, 10)):
+        if math.isclose(value, nominal * decade, rel_tol=1e-6):
+            return previous * decade, following * decade
+    return None
 
 
 class Simulator:
@@ -128,6 +140,16 @@ class VisaScope:
     def rigol(self):
         return self.info["family"] == "rigol"
 
+    @property
+    def legacy_hmo(self):
+        return self.info.get("protocol") == "hmo3524_legacy"
+
+    @property
+    def timebase_command(self):
+        if self.rigol:
+            return ":TIM:MAIN:SCAL"
+        return ":HOR:MAIN:SCAL" if self.legacy_hmo else ":TIM:SCAL"
+
     def ask(self, command):
         """Query with the failing command named in the error (a bare VISA timeout does not say which)."""
         if self.serial:
@@ -137,9 +159,13 @@ class VisaScope:
         except (ScopeError, KeyboardInterrupt):
             raise
         except Exception as exc:
-            hint = (f" Serial link: {self.link}. The instrument answered *IDN? but not this command: try "
-                    "another baud rate (9600 or 19200), another flow control or line ending, or run "
-                    "'Diagnose serial link' and send the log file." if self.serial else "")
+            if self.link.startswith("HO720 USB"):
+                hint = (" HO720 USB: check that USB is active, close other control programs, "
+                        "then run 'Diagnose serial link / HO720 USB' and send the log file.")
+            else:
+                hint = (f" Serial link: {self.link}. The instrument answered *IDN? but not this command: try "
+                        "another baud rate (9600 or 19200), another flow control or line ending, or run "
+                        "'Diagnose serial link' and send the log file." if self.serial else "")
             raise DeviceError(f"No usable reply to {command} from {self.info.get('model', 'instrument')} ({exc}). "
                               f"Report this command; check the serial settings and the instrument's remote setting.{hint}") from exc
 
@@ -160,38 +186,64 @@ class VisaScope:
     def settings(self, channel):
         p = f":CHAN{channel}"
         return {"channel": channel,
-                "timebase_s": self.number(":TIM:MAIN:SCAL?" if self.rigol else ":TIM:SCAL?"),
+                "timebase_s": self.number(self.timebase_command + "?"),
                 "scale_v": self.number(p + ":SCAL?"),
                 "coupling": self.ask(p + ":COUP?").strip(),
                 "enabled": self.ask(p + (":DISP?" if self.rigol else ":STAT?")).strip() in ("1", "ON"),
                 "acquisition_state": self.ask_optional(":TRIG:STAT?" if self.rigol else ":ACQ:STAT?")}
 
-    def check_error(self):
+    def instrument_error(self):
         reply = self.ask(":SYST:ERR?").strip()
         try:
             code = int(reply.split(",")[0])
         except ValueError as exc:
             raise DeviceError(f"Invalid instrument error response: {reply}") from exc
+        return code, reply
+
+    def check_error(self, operation="settings", before=False):
+        code, reply = self.instrument_error()
         if code:
-            raise ScopeError(f"Instrument reported {reply}. Settings may have been partially applied; refresh them.")
+            detail = (f"This error was pending before {operation}; no {operation} command was sent. "
+                      "Inspect the instrument error queue before retrying." if before else
+                      f"The error was reported after {operation}; check the instrument readback.")
+            raise ScopeError(f"Instrument reported {reply}. {detail}")
 
     def configure(self, req: Settings):
         # Detect pre-existing errors before making changes; do not silently clear them.
-        self.check_error()
+        self.check_error(before=True)
         if req.timebase_s is not None:
-            command = ":TIM:MAIN:SCAL" if self.rigol else ":TIM:SCAL"
-            self.instrument.write(f"{command} {req.timebase_s:.12g}")
+            self.instrument.write(f"{self.timebase_command} {req.timebase_s:.12g}")
         if req.scale_v is not None:
             self.instrument.write(f":CHAN{req.channel}:SCAL {req.scale_v:.12g}")
         if req.coupling is not None:
             self.instrument.write(f":CHAN{req.channel}:COUP {req.coupling}")
         self.check_error()
+        if self.legacy_hmo and req.timebase_s is not None:
+            actual = self.number(self.timebase_command + "?")
+            # The tested legacy firmware selects the next standard 1-2-5 step.
+            # Adapt only to that observed readback; other firmware keeps the
+            # normal setter. This is not a retry after a communication failure.
+            neighbors = legacy_timebase_neighbors(req.timebase_s)
+            if neighbors and math.isclose(actual, neighbors[1], rel_tol=1e-6):
+                self.instrument.write(f"{self.timebase_command} {neighbors[0]:.12g}")
+                self.check_error("timebase correction")
+                corrected = self.number(self.timebase_command + "?")
+                if not math.isclose(corrected, req.timebase_s, rel_tol=1e-6):
+                    raise ScopeError(f"Timebase correction did not reach {req.timebase_s:g} s/div; "
+                                     f"instrument reports {corrected:g} s/div. Read settings before retrying.")
 
     def action(self, action):
-        commands = {"run": ":RUN", "stop": ":STOP", "single": ":SING", "autoscale": ":AUT"}
-        self.check_error()
-        self.instrument.write(commands[action])
-        self.check_error()
+        if self.legacy_hmo:
+            if action == "autoscale":
+                raise ScopeError("Auto setup is not supported by the HMO3524 driver. Use the oscilloscope front panel.")
+            commands = {"run": (":ACQ:STAT RUN",), "stop": (":ACQ:STAT STOP",),
+                        "single": (":TRIG:A:MODE SING", ":ACQ:STAT RUN")}
+        else:
+            commands = {"run": (":RUN",), "stop": (":STOP",), "single": (":SING",), "autoscale": (":AUT",)}
+        self.check_error(action, before=True)
+        for command in commands[action]:
+            self.instrument.write(command)
+        self.check_error(action)
 
     def block(self, command, expected_bytes):
         """Read a bounded IEEE definite-length block, including its LF/CRLF trailer.
@@ -232,7 +284,7 @@ class VisaScope:
         enabled = self.ask(f":CHAN{channel}" + (":DISP?" if self.rigol else ":STAT?")).strip()
         if enabled not in ("1", "ON"):
             raise ScopeError(f"CH{channel} is disabled. Enable it on the oscilloscope front panel first.")
-        self.check_error()
+        self.check_error("capture", before=True)
         if self.rigol:
             for cmd in (f":WAV:SOUR CHAN{channel}", ":WAV:MODE NORM", ":WAV:FORM BYTE", ":WAV:STAR 1", ":WAV:STOP 1200"):
                 i.write(cmd)
@@ -241,6 +293,23 @@ class VisaScope:
                 raise DeviceError("Unsupported RIGOL screen waveform preamble.")
             raw = np.frombuffer(self.block(":WAV:DATA?", int(n)), dtype=np.uint8).astype(float)
             result = waveform((np.arange(int(n)) - xr) * dx + x0, (raw - y0 - yr) * dy)
+        elif self.legacy_hmo:
+            # HMO3522/3524 manual, trace commands (pp. 28-31): unsigned byte codes,
+            # separate X/Y references and origins. HMO Compact's REAL32 API differs.
+            for cmd in (f":TRAC:SOUR CH{channel}", ":TRAC:FORM BYTE", ":TRAC:POIN DEF"):
+                i.write(cmd)
+            if self.ask(":TRAC:TYPE?").strip().upper() not in ("NORM", "NORMAL"):
+                raise ScopeError("Peak-detect/envelope data are not supported. Select a normal trace on the scope.")
+            n = self.number(":TRAC:POIN?")
+            if n != int(n) or not 2 <= n <= MAX_POINTS:
+                raise DeviceError("Invalid HMO3524 screen waveform point count.")
+            dx, x0, xr, dy, y0, yr = [self.number(":TRAC:" + key + "?")
+                                     for key in ("XINC", "XOR", "XREF", "YINC", "YOR", "YREF")]
+            if dx <= 0 or dy <= 0 or any(abs(v) >= 9e37 for v in (dx, x0, xr, dy, y0, yr)):
+                raise DeviceError("Invalid HMO3524 screen waveform scaling.")
+            self.check_error("waveform transfer setup")
+            raw = np.frombuffer(self.block(":TRAC:DATA?", int(n)), dtype=np.uint8).astype(float)
+            result = waveform((np.arange(int(n)) - xr) * dx + x0, (raw - yr) * dy + y0)
         else:
             for cmd in (f":CHAN{channel}:DATA:POIN DEF", ":FORM REAL,32", ":FORM:BORD LSBF"):
                 i.write(cmd)
@@ -251,7 +320,7 @@ class VisaScope:
                 raise ScopeError("Peak-detect/envelope data are not supported. Select a normal acquisition on the scope.")
             data = np.frombuffer(self.block(f":CHAN{channel}:DATA?", int(n) * 4), dtype="<f4")
             result = waveform(np.linspace(start, stop, int(n)), data)
-        self.check_error()
+        self.check_error("waveform transfer")
         return result
 
     def close(self):
@@ -261,6 +330,7 @@ class VisaScope:
 class VisaProvider:
     def __init__(self, library=None):
         self.library, self.rm = library, None
+        self.last_diagnostics = None
 
     def manager(self):
         if self.rm is None:
@@ -273,11 +343,26 @@ class VisaProvider:
 
     def resources(self):
         # Enumeration only: never send commands to every COM port on a lab PC.
-        return [r for r in self.manager().list_resources()
-                if re.fullmatch(r"(?:USB[^\r\n]*|ASRL[^\r\n]*)::INSTR", r, re.I)]
+        from . import ftdi
+        found, errors = [], []
+        try:
+            found.extend(r for r in self.manager().list_resources()
+                         if re.fullmatch(r"(?:USB[^\r\n]*|ASRL[^\r\n]*)::INSTR", r, re.I))
+        except Exception as exc:
+            errors.append(str(exc))
+        try:
+            found.extend(ftdi.resources())
+        except DeviceError as exc:
+            errors.append(str(exc))
+        if not found and len(errors) == 2:
+            raise DeviceError("Resource discovery failed. " + " ".join(errors))
+        return found
 
     def _open(self, req: Connection):
         """Open the resource and apply the serial and termination settings; no command is sent."""
+        if req.resource.lower().startswith("ftdi:"):
+            from .ftdi import FtdiInstrument
+            return FtdiInstrument(req)
         if not re.fullmatch(r"(?:USB[^\r\n]*|ASRL[^\r\n]*)::INSTR", req.resource, re.I):
             raise ScopeError("Choose a USB…::INSTR or ASRL…::INSTR VISA resource.")
         inst = self.manager().open_resource(req.resource)
@@ -303,7 +388,8 @@ class VisaProvider:
 
     def _trace(self, inst, req: Connection, prefix="serial-log"):
         log = trace.TraceLog(prefix=prefix)
-        trace.header(log, req.resource, req, self._visa_info())
+        backend = "PyFtdi HO720 USB (no VISA)" if req.resource.lower().startswith("ftdi:") else self._visa_info()
+        trace.header(log, req.resource, req, backend)
         return log, trace.TracedInstrument(inst, log)
 
     def _visa_info(self):
@@ -314,33 +400,52 @@ class VisaProvider:
             return f"VISA library unknown ({exc})"
 
     def connect(self, req: Connection):
+        self.last_diagnostics = None
         inst = self._open(req)
         log = None
         try:
             if req.trace:
                 log, inst = self._trace(inst, req)
-            info = identify(inst.query("*IDN?").strip())
-            if req.resource.upper().startswith("ASRL"):
+            direct_usb = req.resource.lower().startswith("ftdi:")
+            for attempt in range(2 if direct_usb else 1):
+                try:
+                    info = identify(inst.query("*IDN?").strip())
+                    break
+                except TimeoutError:
+                    if attempt == 1 or not direct_usb:
+                        raise
+                    if log:
+                        log.note("HO720 identity timed out; settle and retry *IDN? once")
+                    time.sleep(0.5)
+                    trace.discard_input(inst, log)
+            if req.resource.upper().startswith("ASRL") or direct_usb:
                 # A serial reply may still be arriving (trailing CR/LF); drop it before the next query.
                 time.sleep(max(SETTLE_S, req.settle_ms / 1000))
                 trace.discard_input(inst, log)
             info["resource"] = req.resource
             if log:
                 info["trace_file"] = str(log.path)
-            link = (f"{req.baud_rate} baud 8N1, flow {req.flow_control}, line end {req.termination}"
-                    if req.resource.upper().startswith("ASRL") else "")
-            return VisaScope(inst, info, link)
+            link = (f"{'HO720 USB, ' if direct_usb else ''}{req.baud_rate} baud 8N1, "
+                    f"flow {req.flow_control}, line end {req.termination}"
+                    if req.resource.upper().startswith("ASRL") or direct_usb else "")
+            backend = VisaScope(inst, info, link)
+            if req.clear_status:
+                inst.write("*CLS")
+                info["status_cleared"] = True
+            return backend
         except Exception as exc:
             if log:
                 log.line("ERR", f"connect failed: {exc}")
             with suppress(Exception):
                 inst.close()
+            self.last_diagnostics = getattr(inst, "diagnostics", None)
             raise
 
     def diagnose(self, req: Connection):
         """Read-only query sequence with a byte-level log; closes the port again afterwards."""
-        if not re.fullmatch(r"ASRL[^\r\n]*::INSTR", req.resource, re.I):
-            raise ScopeError("Serial diagnosis needs an ASRL…::INSTR (COM port) resource.")
+        if not (re.fullmatch(r"ASRL[^\r\n]*::INSTR", req.resource, re.I)
+                or req.resource.lower().startswith("ftdi:")):
+            raise ScopeError("Diagnosis needs an ASRL…::INSTR (COM port) or HO720 USB resource.")
         inst = self._open(req)
         try:
             log, _ = self._trace(inst, req, prefix="diagnose")

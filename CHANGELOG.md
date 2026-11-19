@@ -6,6 +6,60 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed (oscilloscope 0.1.0-rc6)
+
+- Windows packaging includes the libusb runtime and checks it in the frozen
+  executable without opening a device. The HMO3524 USB launcher and German test
+  notes describe the USB default and remaining Windows device-driver prerequisite.
+- Direct HO720 USB is the default connection for HMO3524 for now, based on the
+  Mac hardware checks. RS-232 remains unverified: the current adapter test received
+  no identity reply at 115200/8N1/no flow with LF, CRLF or CR endings.
+- HMO3524 legacy SCPI dialect: a USB/FTDI byte probe on 2026-11-18 confirmed that
+  `:HOR:MAIN:SCAL?` and its long form answer, while `:TIM:SCAL?` and
+  `:TIMebase:SCALe?` do not; the error queue reports `-101,"Invalid character"`.
+  This explains the failing command on the tested firmware; Windows RS-232 still
+  needs a dashboard retest. The driver now selects the HMO3524's legacy horizontal
+  and trace commands instead of the HMO Compact dialect.
+- HMO3524 capture uses bounded `TRACe` byte blocks and separate X/Y scaling metadata.
+  Run/Stop and single acquisition use the legacy acquisition/trigger commands.
+  Auto setup is unavailable for this model; use its front panel. A private USB
+  check verified settings and a framed 6000-sample transfer through this driver.
+  On 2026-11-19, nonzero time/vertical positions and probe-factor conversions
+  matched the scope's own CSV output, and single acquisition completed. Windows
+  RS-232 still awaits acceptance.
+- Direct HO720 USB connection through PyFtdi/libusb, without a COM port or VISA.
+  Find resources lists only matching HO720 USB devices; Connect selects one and
+  identifies it before control commands. Startup includes a settling pause and
+  one identity-only timeout retry. Existing VISA USB/COM connections remain available.
+  Serial diagnosis now compares both legacy horizontal query forms with the newer
+  timebase forms and accepts either a COM port or direct HO720 USB resource.
+  On 2026-11-18 the user confirmed browser capture working on the Mac after
+  selecting the explicit status clear; cached exchanges show repeated framed
+  6000-sample transfers and zero instrument errors. Subsequent Mac USB API checks
+  verified controls/settings; Windows RS-232 acceptance remains pending.
+- Collection error handling: recognize macOS USB timeout errno 60 (and other
+  libusb timeout forms) within the read deadline, with fixed 100 ms serial polling
+  matching the successful private check. Real disconnects still fail and close
+  the session; only identity queries may be resent.
+- Direct HO720 input handling uses quiet reads, matching the successful private
+  checker, rather than hardware purges between requests. Connect never polls the
+  SCPI error queue in a loop. "Clear previous status/errors on Connect" explicitly
+  requests `*CLS` after supported identification; it is off by default.
+- New errors name the operation and distinguish precheck, write and read failures.
+  Cached status retains operation errors, and `GET /api/diagnostics` preserves a
+  bounded exchange history even after connection failure/disconnect, without
+  querying the instrument or requiring the optional file log. Identity replies
+  are redacted from that history.
+- Hardware checks on 2026-11-19 verified Stop/Run, repeatable stopped captures,
+  exact CSV export, and timebase/scale/coupling changes through the API on the Mac.
+  The tested HMO3524 selects the next standard timebase step when written its
+  nominal value. The driver detects that readback and makes one verified
+  correction using the preceding step; firmware that accepts the value directly
+  keeps its normal setter. A communication failure never resends a settings write.
+- Recognize USB timeouts hidden in PyFtdi's suppressed exception context as well
+  as explicit causes. Reads copy only already cached bytes or fetch one new byte,
+  so a subsequent packet timeout cannot discard an accumulated waveform prefix.
+
 ### Added (oscilloscope 0.1.0-rc5)
 
 - Lab feedback on rc4 (2026-11-17): the HMO3524 (firmware 02.030-01.038-03.046, RS-232,

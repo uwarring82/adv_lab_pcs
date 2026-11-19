@@ -14,6 +14,7 @@ class Manager:
         self.last = None
         self.sequence = 0
         self.error = None
+        self.last_diagnostics = None
 
     @contextmanager
     def access(self, invalidate=True):
@@ -26,7 +27,8 @@ class Manager:
                 self._drop()
             self.error = str(exc)
             raise
-        except ScopeError:
+        except ScopeError as exc:
+            self.error = str(exc)
             raise
         except Exception as exc:
             if invalidate:
@@ -42,6 +44,7 @@ class Manager:
         if backend:
             with suppress(Exception):
                 backend.close()
+            self.last_diagnostics = getattr(getattr(backend, "instrument", None), "diagnostics", None)
 
     def require(self, channel=None):
         if self.backend is None:
@@ -61,10 +64,20 @@ class Manager:
         with self.access(invalidate=False):
             return {"resources": self.provider.resources()}
 
+    def diagnostics(self):
+        """Return cached exchanges, including after a failed connection; no instrument I/O."""
+        with self.access(invalidate=False):
+            active = getattr(getattr(self.backend, "instrument", None), "diagnostics", None)
+            details = active if self.backend is not None else (
+                self.last_diagnostics or getattr(self.provider, "last_diagnostics", None))
+            return {"diagnostics_version": 1, "connected": self.backend is not None,
+                    "error": self.error, "details": details}
+
     def connect(self, req=None):
         with self.access():
             self._drop()
             self.error = None
+            self.last_diagnostics = None
             self.backend = self.provider.connect(req) if req else Simulator()
             return self.backend.info.copy()
 
@@ -82,17 +95,22 @@ class Manager:
 
     def settings(self, channel):
         with self.access():
-            return self.require(channel).settings(channel)
+            result = self.require(channel).settings(channel)
+            self.error = None
+            return result
 
     def configure(self, req):
         with self.access():
             b = self.require(req.channel)
             b.configure(req)
-            return b.settings(req.channel)
+            result = b.settings(req.channel)
+            self.error = None
+            return result
 
     def action(self, action):
         with self.access():
             self.require().action(action)
+            self.error = None
             return {"action": action, "sent": True}
 
     def capture(self, channel):
@@ -103,6 +121,7 @@ class Manager:
             data.update(id=self.sequence, channel=channel, info=b.info.copy(),
                         captured_at=datetime.now(timezone.utc).isoformat(), mode="screen_preview")
             self.last = data
+            self.error = None
             return data
 
     def saved(self, capture_id):

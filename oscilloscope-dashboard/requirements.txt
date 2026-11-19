@@ -5,5 +5,7 @@ numpy>=1.22
 PyVISA>=1.14,<2.0
 PyVISA-py>=0.7,<1.0
 pyserial>=3.5,<4.0
-# USB with @py additionally needs pyusb and a working libusb installation.
+pyftdi==0.57.1
+libusb-package==1.0.30.1; sys_platform == "win32"
+# PyFtdi includes PyUSB; direct HO720 USB and USB with @py need a working libusb runtime.
 # On Windows, prefer the VISA runtime already used for the lab's PyVISA tests.

@@ -12,11 +12,12 @@
   <section class="card">
     <h2>Connection</h2>
     <div class="toolbar">
-      <label class="resource">USB / serial VISA resource<input id="resource" placeholder="USB0::…::INSTR or ASRL3::INSTR"></label>
+      <label class="resource">USB / serial resource<input id="resource" placeholder="USB0::…::INSTR, ASRL3::INSTR or ftdi://…"></label>
       <label class="resource" id="found" hidden>Found resources<select id="resources"></select></label>
       <button id="discover">Find resources</button><button id="connect" class="primary">Connect</button>
       <button id="disconnect" disabled>Disconnect</button><button id="simulate">Use simulator</button>
     </div>
+    <p class="hint">HMO3524: direct HO720 USB is the default for now (checked on the Mac). Select USB on the scope and choose HO720 USB. RS-232 remains unverified.</p>
     <details><summary>Serial connection settings (HAMEG)</summary>
       <div class="toolbar serial">
         <label>Baud rate<select id="baud"><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option selected>115200</option></select></label>
@@ -25,11 +26,13 @@
         <label>Timeout (s)<input id="timeout" type="number" min="0.1" max="30" step="0.1" value="5"></label>
         <label>Pause after *IDN? (ms)<input id="settle" type="number" min="0" max="2000" step="50" value="0"></label>
         <label><input id="trace" type="checkbox"> Record serial log</label>
+        <label><input id="clear-status" type="checkbox"> Clear previous status/errors on Connect (*CLS)</label>
       </div>
       <div class="toolbar serial">
-        <button id="diagnose">Diagnose serial link</button><a id="getlog" href="/api/log/latest" download>Download latest log</a>
+        <button id="diagnose">Diagnose serial link / HO720 USB</button><a id="getlog" href="/api/log/latest" download>Download latest log</a><a href="/api/diagnostics" target="_blank" rel="noopener">Cached connection diagnostics</a>
       </div>
       <p class="hint">8 data bits, no parity, 1 stop bit. Match the baud rate and flow control to the instrument menu. These defaults have not been verified on the lab PCs.</p>
+      <p class="hint">For direct HO720 USB, select USB on the scope, click Find resources and choose the HO720 USB entry. A COM port and VISA are not required. Use None for flow control.</p>
     </details>
     <p id="device" class="hint">Select a resource to identify the instrument, or try synthetic data.</p>
   </section>
@@ -62,7 +65,7 @@
     </section>
   </div>
   <section class="card bottom">
-    <div><h2>Model coverage</h2><p>DS1054Z: USB connection, captures and instrument controls reported working; plot refresh confirmed with rc2. HAMEG HMO1022 works over its COM port. HMO3524 identifies but then times out; the cause remains unresolved. This build adds command-specific diagnostics, a resource drop-down and readable cursor units; a lab retest is pending. Other RIGOL models await hardware testing.</p><p class="hint">HM1508 / HM1508-2 need a separate verified protocol. The inventory entry “HM1022” needs model confirmation. HAMEG serial settings must match the instrument menu.</p></div>
+    <div><h2>Model coverage</h2><p>DS1054Z: USB connection, captures and instrument controls reported working; plot refresh confirmed with rc2. HAMEG HMO1022 works over its COM port. HMO3524: Mac browser capture, USB API controls/settings, stopped records, CSV export and single acquisition checked. Time/voltage conversion at changed offsets and probe factor matches the scope's CSV. Windows serial operation still needs hardware testing. Use its front panel for Auto setup. Other RIGOL models await hardware testing.</p><p class="hint">HM1508 / HM1508-2 need a separate verified protocol. The inventory entry “HM1022” needs model confirmation. HAMEG serial settings must match the instrument menu.</p></div>
     <div><h2>Student API</h2><p><a href="/docs" target="_blank" rel="noopener">Open API documentation</a></p><pre>POST /api/capture
 {"channel": 1}
 

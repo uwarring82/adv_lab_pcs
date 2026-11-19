@@ -5,7 +5,7 @@
 .DESCRIPTION
     Creates a build venv, installs the app + PyInstaller, runs the tests, and bundles:
       - the web/ dashboard assets,
-      - PyVISA and PyVISA-py backends and serial support.
+      - PyVISA, PyVISA-py and PyFtdi/PyUSB backends and serial support.
     VISA runtimes and hardware drivers must already be installed on the PC.
     Output: dist\OscilloscopeDashboard.exe. Exits 1 if any step fails.
 #>
@@ -51,6 +51,10 @@ try {
             --collect-all pyvisa `
             --collect-all pyvisa_py `
             --collect-all serial `
+            --collect-all pyftdi `
+            --collect-all usb `
+            --collect-all libusb_package `
+            --hidden-import scope.usb_backend `
             --collect-submodules uvicorn `
             --hidden-import uvicorn.loops.auto `
             --hidden-import uvicorn.protocols.http.auto `
@@ -63,6 +67,7 @@ try {
     if (-not $built -or $built.LastWriteTime -lt $started) {
         throw "PyInstaller finished but $exe was not (re)built."
     }
+    Invoke-Native 'Bundled USB runtime check (no device access)' { & $exe --check-usb-backend }
 
     # The .exe redistributes the bundled Python packages: ship their licenses with it.
     # (Lists every package in the build venv, a superset of what PyInstaller bundled.)
@@ -73,7 +78,7 @@ try {
     }
     Copy-Item (Join-Path $root '..\LICENSE') (Join-Path $root 'dist\LICENSE.txt')
     Copy-Item (Join-Path $root '..\THIRD_PARTY_NOTICES.md') (Join-Path $root 'dist\THIRD_PARTY_NOTICES.md')
-    foreach ($file in 'README-TEST-DE.txt', 'Start-Rigol.cmd', 'Simulator.cmd') {
+    foreach ($file in 'README-TEST-DE.txt', 'Start-Rigol.cmd', 'Start-HMO3524-USB.cmd', 'Simulator.cmd', 'LIBUSB-LICENSE.txt') {
         Copy-Item (Join-Path $root "packaging\$file") (Join-Path $root "dist\$file")
     }
 

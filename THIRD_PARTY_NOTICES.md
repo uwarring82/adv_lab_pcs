@@ -37,6 +37,8 @@ Installed with `pip` from `requirements.txt`:
 | [PyVISA](https://github.com/pyvisa/pyvisa) (oscilloscope dashboard) | MIT |
 | [PyVISA-py](https://github.com/pyvisa/pyvisa-py) (oscilloscope dashboard) | MIT |
 | [pySerial](https://github.com/pyserial/pyserial) (oscilloscope dashboard) | BSD-3-Clause |
+| [PyFtdi](https://github.com/eblot/pyftdi) (oscilloscope dashboard, HO720 USB) | BSD-3-Clause |
+| [libusb-package](https://github.com/pyocd/libusb-package) (Windows oscilloscope runtime) | Apache-2.0; bundled libusb is LGPL-2.1-or-later |
 
 ## In the packaged Windows executable
 
@@ -48,6 +50,13 @@ with the executable.
 `OscilloscopeDashboard.exe` is built separately by
 `oscilloscope-dashboard/packaging/build_exe.ps1`, with its own dependency license
 report. VISA runtimes and instrument drivers are not bundled or redistributed.
+
+The oscilloscope Windows release includes libusb-package 1.0.30.1 and its native
+libusb DLL. The ZIP provides `LIBUSB-LICENSE.txt`, exact corresponding source
+archives in `sources/`, and `LIBUSB-SOURCE.txt` with build/replacement information.
+The libusb submodule revision is `87a55632db62c9bdc58cd31d3ccfa673f1bb017f`.
+A replacement `libusb-1.0.dll` beside the executable takes precedence over its
+embedded copy; no system DLL or device driver is installed by the application.
 
 The executable is produced with [PyInstaller](https://pyinstaller.org). Its
 bootloader is licensed under the GPL-2.0 with an exception that explicitly allows

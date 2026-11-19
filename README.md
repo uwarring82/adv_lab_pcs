@@ -63,15 +63,21 @@ The [lab setup guide](docs/lab-setup.md) walks through every step.
 
 The [oscilloscope dashboard](oscilloscope-dashboard/README.md) adds a separate local
 interface on port **8778**, following the spectrometer's FastAPI and offline web
-architecture. It includes a simulator, PyVISA USB/serial connection selection,
+architecture. It includes a simulator, PyVISA USB/serial and direct HO720 USB connection selection,
 run/stop/single/auto setup, timebase and channel settings, waveform previews and CSV
 export. Drivers are prepared for the inventory's RIGOL DS1000Z/Z-E and HAMEG HMO
 models. Initial DS1054Z lab feedback confirms USB connection, capture and controls.
 Plot refresh is confirmed working with rc2, and one HMO1022 works over its COM port.
 rc3 adds a resource drop-down, readable cursor units and HMO3524 diagnostics;
-rc4 corrects the hardware-test status text; rc5 adds a serial diagnosis and log for the
-HMO3524. These additions await a lab retest.
-The HMO3524 timeout after identification (still present in rc4, 2026-11-17) remains unresolved. Other models await
+rc4 corrects the hardware-test status text; rc5 adds a serial diagnosis and log.
+A USB probe on 2026-11-18 confirmed that the HMO3524 uses legacy horizontal commands
+instead of the HMO Compact timebase commands. rc6 adds its legacy driver; a private
+USB check verified settings and a 6000-sample transfer, with calibration readings
+reported to match the display. Direct HO720 USB browser capture was confirmed on
+the Mac after explicit status clear. Mac USB controls/settings passed on 2026-11-19,
+and offset/probe conversion matched the scope's CSV output. Windows RS-232 still
+needs a retest. **Direct HO720 USB is the default connection for the HMO3524 for
+now; RS-232 remains unverified.** Other models await
 validation. HM1508/HM1508-2 and the ambiguous
 HM1022 entry remain unsupported pending protocol/model confirmation.
 

@@ -43,6 +43,11 @@ async function status() {
   $("badge").textContent = connected ? (data.info.simulated ? "SIMULATED DATA" : "HARDWARE") : "Disconnected";
   $("badge").className = connected ? (data.info.simulated ? "sim" : "hardware") : "";
   $("device").textContent = connected ? `${data.info.vendor} ${data.info.model} · ${data.info.serial} · ${data.info.resource || "Synthetic 1 kHz signal"}` : (data.error || "Select a resource to identify the instrument, or try synthetic data.");
+  const unsupported = connected ? (data.info.unsupported_actions || []) : [];
+  document.querySelectorAll("[data-action]").forEach(button => {
+    button.disabled = unsupported.includes(button.dataset.action);
+    button.title = button.disabled ? "Use the oscilloscope front panel for this action." : "";
+  });
   if (connected) {
     const count = data.info.channels;
     for (const option of $("channel").options) option.disabled = Number(option.value) > count;
@@ -103,21 +108,24 @@ async function tick() {
 }
 $("discover").onclick = () => task(async () => {
   const data = await api("resources");
-  $("resources").replaceChildren(...data.resources.map(r => { const o = document.createElement("option"); o.value = o.textContent = r; return o; }));
+  $("resources").replaceChildren(...data.resources.map(r => { const o = document.createElement("option"); o.value = r; o.textContent = r.startsWith("ftdi:") ? `HO720 USB · ${r}` : r; return o; }));
   $("found").hidden = !data.resources.length;
   if (data.resources.length && !data.resources.includes($("resource").value)) $("resource").value = data.resources[0];
   notice(data.resources.length ? `Found ${data.resources.length} resources. Select the scope, then connect.` : "No USB or serial resources found. Check VISA drivers and cables, or enter the resource manually.");
 });
 async function connect(simulated) {
   clearCapture();
-  await api(simulated ? "simulator" : "connect", simulated ? {} : {
+  const info = await api(simulated ? "simulator" : "connect", simulated ? {} : {
     resource: $("resource").value.trim(), baud_rate: Number($("baud").value),
     flow_control: $("flow").value, termination: $("termination").value,
     timeout_ms: Math.round(Number($("timeout").value) * 1000),
-    trace: $("trace").checked, settle_ms: Number($("settle").value)
+    trace: $("trace").checked, clear_status: $("clear-status").checked,
+    settle_ms: Number($("settle").value)
   });
   await status(); await readSettings();
-  notice(simulated ? "Simulator connected. All waveforms are synthetic." : "Connected. Compare the first capture with the instrument display; see model coverage below.");
+  notice(simulated ? "Simulator connected. All waveforms are synthetic." : info.status_cleared ?
+    "Connected. Previous instrument status/errors cleared at your request (*CLS). Compare the first capture with the display." :
+    "Connected. Compare the first capture with the instrument display; see model coverage below.");
 }
 $("diagnose").onclick = () => task(async () => {
   notice("Diagnosing the serial link (about 20 s). Do not touch the instrument settings.");

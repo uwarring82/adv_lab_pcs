@@ -1,100 +1,84 @@
-Oscilloscope Dashboard 0.1.0-rc5 - Windows-Test nach dritter Rueckmeldung
+Oscilloscope Dashboard 0.1.0-rc6 - HMO3524 direkt per HO720 USB
 
-Voraussetzung: Windows 10/11, 64 Bit (x64).
-Python muss nicht installiert sein. Fuer ein echtes RIGOL werden weiterhin eine
-64-Bit-VISA-Laufzeit und der passende USB-Treiber benoetigt. Am besten dieselbe
-VISA-/Treiberinstallation verwenden, mit der der PyVISA-Test bereits funktioniert.
-Die ZIP installiert oder ersetzt keine Geraetetreiber.
+Windows-Testversion fuer Windows 10/11 x64. Python muss nicht installiert sein.
+Die ZIP enthaelt die Python-USB-Bibliotheken und die libusb-Laufzeit. Sie installiert
+oder ersetzt keine Geraetetreiber. Der physische Windows-USB-Test steht noch aus;
+Aufnahmen, Steuerung und Skalierung wurden am HMO3524 unter macOS geprueft.
 
-START
-1. ZIP vollstaendig in einen Ordner entpacken.
-2. Ohne Geraet: Simulator.cmd doppelklicken.
-   Mit RIGOL: Scope per USB verbinden, andere Steuerprogramme schliessen,
-   dann Start-Rigol.cmd oder OscilloscopeDashboard.exe doppelklicken.
-3. Der Browser oeffnet http://127.0.0.1:8778/ automatisch.
-   Falls nicht, diese Adresse manuell oeffnen. Das Konsolenfenster offen lassen.
-4. Find resources -> USB...::INSTR auswaehlen -> Connect.
-   Modell und Seriennummer mit dem angeschlossenen Scope vergleichen.
-5. Einen am Scope eingeschalteten Kanal auswaehlen -> Capture screen.
-   Mit Start live preview wird die Vorschau regelmaessig aktualisiert.
-6. Export displayed CSV speichert genau die angezeigten Daten in Sekunden/Volt.
-7. Beenden: Konsolenfenster schliessen oder dort Strg+C druecken.
+HMO3524: STANDARDVERBINDUNG USB
+1. ZIP vollstaendig entpacken und die alte Dashboard-Version schliessen.
+2. Scope direkt mit einem USB-Kabel verbinden; am Scope USB als aktive
+   Schnittstelle waehlen. Der USB-RS232-Adapter wird dafuer nicht benoetigt.
+3. Andere Scope-Programme schliessen und Start-HMO3524-USB.cmd starten.
+   Der Browser oeffnet http://127.0.0.1:8778/. Das Konsolenfenster offen lassen.
+4. Find resources -> HO720 USB auswaehlen -> Connect. Modell/Seriennummer mit
+   dem Scope vergleichen. Flow control None und Line ending LF belassen.
+5. CH1 am Scope einschalten, Kalibriersignal anschliessen, Capture screen klicken.
+   Zeitbasis, Spannung und Kurve mit dem Scope vergleichen. Export displayed CSV
+   speichert genau die angezeigten Samples in Sekunden und Volt.
 
-RIGOL-MODELLE
-DS1054Z, DS1074Z, DS1104Z (auch Plus), DS1202Z-E.
-Ein Laborbenutzer hat Verbindung, erste Aufnahme und Steuerfunktionen mit einem DS1054Z
-erfolgreich getestet. rc2 behebt die verzoegerte Plot-Aktualisierung bei weiteren
-Aufnahmen und exportiert Zahlen ohne Anfuehrungszeichen. rc3 zeigt gefundene
-Ressourcen in einer Auswahlliste und die Cursor-Zeit in passenden Einheiten (z. B. us, ns).
-Die Plot-Aktualisierung mit rc2 wurde im Labor bestaetigt. rc4 korrigiert die
-Hardware-Testhinweise; die Treiber entsprechen rc3.
+Falls fruehere Diagnosen Fehler hinterlassen haben: Disconnect, Serial connection
+settings oeffnen, Clear previous status/errors on Connect (*CLS) bewusst auswaehlen,
+dann Connect. Dies loescht Status/Fehler, aber keine Aufnahmeeinstellungen.
+Normales Verbinden fragt keine Fehlerliste in einer Schleife ab.
 
-HMO3524 PER RS232: DIAGNOSE-ABLAUF (rc5, 5 Schritte, ca. 10 Minuten)
-Der HMO3524 meldet sich mit *IDN?, antwortet danach aber nicht auf :TIM:SCAL?.
-Die Ursache ist unbekannt; rc5 schreibt ein Protokoll, mit dem wir sie finden koennen.
-1. Am Geraet im Menue Einstellungen Allgemein > Schnittstelle (je nach Geraet SETUP ->
-   INTERFACE -> PARAMETER) Baudrate, Stoppbits, Paritaet und Flusssteuerung (Keine oder
-   RTS/CTS) ansehen und notieren oder fotografieren. Ausserdem notieren: welches Kabel
-   bzw. welcher Adapter verwendet wird (gerade oder Nullmodem, USB-RS232-Adapter: Modell).
-2. Im Browser: Serial connection settings aufklappen. Baud rate wie am Geraet (115200),
-   Flow control None, Line ending LF, Timeout 5. Die ASRL...::INSTR des COM-Ports waehlen
-   (Disconnect, falls verbunden). Dann "Diagnose serial link" klicken und ca. 20 s warten.
-3. Wiederholen mit Baud rate 9600 am Geraet UND im Browser (Geraet zuerst aendern).
-   Danach wieder auf 115200 zurueckstellen, falls 9600 nichts aendert.
-4. Mit 115200: Record serial log anhaken, Pause after *IDN? auf 500, Connect klicken.
-   Die Fehlermeldung vollstaendig kopieren. Falls Flow control am Geraet einstellbar ist,
-   Schritt 2 zusaetzlich mit RTS / CTS wiederholen (an beiden Enden gleich).
-5. "Download latest log" klicken (oder alle Dateien diagnose-*.txt und
-   serial-log-*.txt aus dem Ordner %USERPROFILE%\oscilloscope-dashboard-logs senden)
-   und zusammen mit den Notizen aus Schritt 1 und der Fehlermeldung zurueckschicken.
+WINDOWS-USB-TREIBER
+Die enthaltene libusb-DLL ersetzt keinen Windows-Geraetetreiber. Der direkte
+PyFtdi-Weg braucht einen libusb-kompatiblen Treiber fuer das HO720; ein vorhandener
+VCP-/VISA-Treiber kann dafuer ungeeignet sein. Keine funktionierende Installation
+ungeprueft ersetzen. Wenn kein HO720 USB erscheint: USB-Aktivierung, Geraetename
+und Treiber im Geraete-Manager notieren und mit der lokalen IT abstimmen.
+Die bisherigen VISA-/COM-Pfade bleiben fuer vorhandene funktionierende Setups nutzbar.
 
-HAMEG-TEST
-Ein HMO1022 funktioniert laut Laborrueckmeldung ueber seinen COM-Port.
-Beim HMO3524 ist der Timeout nach der Erkennung weiterhin ungeloest.
-Start-Rigol.cmd startet auch diese Treiber; die Auswahl erfolgt nach *IDN?.
-Im Browser unter Serial connection settings Baudrate, Handshake und Zeilenende
-passend zum Geraet einstellen (8-N-1), dann ASRL...::INSTR auswaehlen und verbinden.
-Die Vorgaben 115200 / kein Handshake / LF sind nicht fuer die Laborgeraete bestaetigt.
-Bitte Modell, Firmware, COM-Port und funktionierende Einstellungen zurueckmelden.
-Bekanntes Problem: Der HMO3524 verbindet, antwortet danach aber nicht rechtzeitig. rc3
-nennt in der Fehlermeldung den SCPI-Befehl, der keine Antwort bekam; bitte die
-vollstaendige Meldung, die Firmware und Schnittstelle/Baudrate/Handshake am Geraet melden.
-HM1508/HM1508-2 werden noch nicht unterstuetzt; bei HM1022 bitte zuerst den genauen
-Modellnamen am Typenschild pruefen. Nicht einfach als HMO1022 behandeln.
+Die Laufzeit kann ohne Geraetezugriff geprueft werden:
+  OscilloscopeDashboard.exe --check-usb-backend
+Die Versionsabfrage lautet:
+  OscilloscopeDashboard.exe --version
 
-KURZER TEST AM GERAET
-- Kalibriersignal anschliessen; Tastkopf und Tastkopffaktor am Scope korrekt setzen.
-- Modell, Seriennummer, Firmware und VISA-Installation notieren.
-- Zeitbasis, V/div und Kopplung mit der Frontplatte vergleichen.
-- Jeweils eine Einstellung aendern und die Wirkung am Scope pruefen.
-- Run und Stop pruefen. Arm single wartet auf einen Trigger; danach Capture screen.
-- Auto setup veraendert auch Trigger- und Kanaleinstellungen.
-- Amplitude, Offset und Periodendauer der Vorschau mit dem Scope vergleichen.
-- Alle Kanaele testen; CSV pruefen; Kabel abziehen und erneut verbinden.
+GEPRUEFT UND NOCH OFFEN
+Am Mac mit HMO3524/HO720 geprueft: Einstellungen, 6000-Sample-Aufnahmen,
+Run/Stop, wiederholte gestoppte Aufnahmen, exakter CSV-Export, Zeitbasis-/V/div-/
+Kopplungsaenderungen und abgeschlossene Single-Aufnahme. Zeit-/Spannungswerte
+stimmen auch nach horizontaler/vertikaler Verschiebung und Aenderung des
+Tastkopffaktors mit dem Scope-CSV ueberein (innerhalb dessen Rundung).
+Der aeltere HMO3524 verwendet HORizontal/TRACe statt des neueren TIMebase-Befehls.
+Der getestete Zeitbasis-Setter waehlt die naechste 1-2-5-Stufe. Nur bei genau diesem
+Rueckleseverhalten korrigiert der Treiber einmal und prueft das Ergebnis.
+Gestoppte Aufnahmen koennen als COMP (vollstaendig) oder BRE (abgebrochen) erscheinen.
+RS232 bleibt unbestaetigt; weitere RS232-Tests sind zurueckgestellt.
 
-Die Vorschau liest nur Bildschirmdaten eines Kanals, nicht den gesamten Speicher.
-Fuer eine stabile Kurve erst eine abgeschlossene Aufnahme am Scope stoppen.
-Pause live preview stoppt nur die Browserabfrage, nicht die Erfassung am Scope.
-Die Vorschau ist KEINE lueckenlose Aufzeichnung aller Trigger: Zwischen zwei
-Abfragen auftretende Aufnahmen werden nicht gespeichert. Eine schnellere Abfrage
-allein verhindert das nicht. Fuer ein einzelnes Ereignis Arm single verwenden,
-den abgeschlossenen Trigger abwarten und danach Capture screen anklicken.
-SIMULATED DATA kennzeichnet kuenstliche Daten; bei Verbindungsfehlern wird niemals
-automatisch auf den Simulator umgeschaltet.
+BEDIENUNG
+- Run/Stop steuert das Scope. Pause live preview pausiert nur die Browserabfrage.
+- Arm single setzt den Triggermodus auf Einzelaufnahme und wartet auf dessen
+  Trigger. Danach Capture screen. Run verwendet den aktuellen Triggermodus.
+- Auto setup am HMO3524 an der Frontplatte ausfuehren; im Dashboard deaktiviert.
+- Die Vorschau liest einen Kanal des Bildschirms, nicht den gesamten Speicher.
+  Live preview ist keine lueckenlose Aufzeichnung aller Trigger.
+- SIMULATED DATA kennzeichnet kuenstliche Daten. Bei Verbindungsfehlern wird
+  niemals automatisch auf den Simulator gewechselt.
+- Beenden: Konsolenfenster schliessen oder dort Strg+C druecken.
 
-WENN ETWAS NICHT FUNKTIONIERT
-- Konsolenmeldung und Browserfehlermeldung notieren oder fotografieren.
-- Bei fehlendem VISA: die zuvor funktionierende VISA-/USB-Installation pruefen.
-- Bei belegtem Port: andere Scope-Software schliessen.
-- Bei belegtem Web-Port: OscilloscopeDashboard.exe --port 8779 starten.
-- Bei einem Fehler beim Programmstart Start-Rigol.cmd verwenden; das Fenster
-  bleibt dann offen und zeigt den Fehler.
-- Die EXE ist nicht digital signiert. Windows kann eine Herausgeberwarnung zeigen.
-  Keine Sicherheitsrichtlinien deaktivieren; bei einer Sperre die lokale IT nutzen.
+RIGOL UND WEITERE HAMEG-GERAETE
+Fuer RIGOL die vorhandene funktionierende VISA-/USB-Installation beibehalten,
+Scope anschliessen, Start-Rigol.cmd starten, Find resources und USB...::INSTR waehlen.
+DS1054Z wurde im Labor geprueft; DS1074Z, DS1104Z/Plus und DS1202Z-E sind erkannt,
+aber noch nicht am Geraet getestet. Ein HMO1022 funktioniert laut Laborrueckmeldung
+ueber seinen COM-Port. HM1508/HM1508-2 und die ungeklaerte Bezeichnung HM1022
+werden nicht automatisch als unterstuetzte Modelle behandelt.
+Ohne Geraet kann Simulator.cmd gestartet werden.
 
-Bitte Testbericht mit Modell/Firmware, Windows-Version, VISA-Laufzeit, USB-Ressource,
-getestetem Kanal, Schritten, Soll-/Ist-Verhalten und Fehlermeldung zurueckgeben.
-Version abfragen: OscilloscopeDashboard.exe --version
+FEHLERBERICHT
+Vollstaendige Browser-/Konsolenmeldung, Modell/Firmware, Windows-Version und
+Geraetetreiber notieren. Record serial log VOR Connect aktivieren; Download latest
+log liefert das Protokoll. Cached connection diagnostics zeigt die letzten USB-
+Austausche auch ohne Dateilog; diese Abfrage sendet keine Geraetebefehle.
+Dateilogs liegen in %USERPROFILE%\oscilloscope-dashboard-logs und enthalten die
+Geraeteidentitaet. Bei belegtem Port andere Scope-Programme schliessen; bei belegtem
+Web-Port OscilloscopeDashboard.exe --port 8779 verwenden.
+Die EXE ist nicht signiert; bei einer Windows-Sperre die lokale IT hinzuziehen.
 
+LIZENZEN
+LICENSE.txt, THIRD_PARTY_NOTICES.md, THIRD_PARTY_LICENSES.txt und LIBUSB-LICENSE.txt
+zusammen mit dem Programm weitergeben. sources/ enthaelt den genauen libusb- und
+libusb-package-Quellcode; LIBUSB-SOURCE.txt erklaert Zuordnung und Austausch der DLL.
 Quellcode und Releases: https://github.com/uwarring82/adv_lab_pcs
-Lizenzdateien bitte zusammen mit dem Programm weitergeben.
